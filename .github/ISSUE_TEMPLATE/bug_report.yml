@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible CppBridgeJ problem.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal Java interface, C++ symbol, Maven command, and failure output.
+      placeholder: |
+        mvn -B clean verify
+        ...
+    validations:
+      required: true
+  - type: input
+    id: java
+    attributes:
+      label: JDK
+      placeholder: "Temurin 22.0.x"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and compiler
+      placeholder: "macOS 15 / clang++ 16"
+    validations:
+      required: true

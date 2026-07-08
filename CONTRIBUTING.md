@@ -9,10 +9,14 @@
 ## Local validation
 
 ```bash
-mvn clean verify
+mvn -Pcoverage clean verify
 ./scripts/run-example.sh
 ./scripts/show-build-reports.sh
 ```
+
+The `coverage` profile runs JaCoCo and enforces the current project coverage
+ratchet. Raise the threshold when a change increases meaningful coverage; do not
+lower it to merge unrelated work.
 
 Run benchmark groups only when working on runtime performance:
 
@@ -46,3 +50,28 @@ A change that adds or changes runtime behavior should include at least one of:
 - documentation update.
 
 Performance notes should include hardware, JVM version, compiler version, benchmark command, and JMH output.
+
+## Testing expectations
+
+- API validation and diagnostics should be covered with unit tests.
+- Native invocation behavior should be covered with integration tests that
+  compile a small fixture library.
+- Maven plugin behavior should avoid shell-specific assumptions and should keep
+  platform-specific behavior isolated behind `Platform`.
+- Benchmarks are not correctness tests. Keep benchmark changes separate from
+  runtime behavior changes when possible.
+
+## Release checklist
+
+Maintainers should release from a clean `main` branch:
+
+```bash
+mvn -Pcoverage clean verify
+./scripts/package-source.sh
+git tag vX.Y.Z
+git push origin main vX.Y.Z
+```
+
+Pushing a `v*` tag builds release artifacts and creates a GitHub release. Maven
+Central publication requires repository secrets and should be added only after
+the project owner configures signing and deployment credentials.
