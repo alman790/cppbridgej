@@ -25,7 +25,7 @@
         <maven.plugin.tools.version>3.15.2</maven.plugin.tools.version>
         <maven.version>3.9.16</maven.version>
         <jmh.version>1.37</jmh.version>
-        <junit.version>5.11.4</junit.version>
+        <junit.version>6.1.1</junit.version>
         <jacoco.version>0.8.12</jacoco.version>
         <jacoco.coverage.minimum>0.80</jacoco.coverage.minimum>
         <argLine></argLine>
