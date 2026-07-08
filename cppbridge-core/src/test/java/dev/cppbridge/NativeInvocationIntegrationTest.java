@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class NativeInvocationIntegrationTest {
     @TempDir
@@ -26,6 +27,8 @@ class NativeInvocationIntegrationTest {
 
     @Test
     void invokesNativeScalarsHeapArraysAndManagedArrays() throws Exception {
+        assumeTrue(NativeTestPlatform.isCompilerAvailable(), NativeTestPlatform.compiler() + " is not available");
+
         Path library = compileFixture();
         FixtureApi api = CppBridge.load(FixtureApi.class, library.toString());
 
@@ -53,6 +56,8 @@ class NativeInvocationIntegrationTest {
 
     @Test
     void wrapsNativeBindingFailuresWithActionableMessages() throws Exception {
+        assumeTrue(NativeTestPlatform.isCompilerAvailable(), NativeTestPlatform.compiler() + " is not available");
+
         Path library = compileFixture();
         MissingSymbolApi api = CppBridge.load(MissingSymbolApi.class, library.toString());
 
@@ -71,29 +76,39 @@ class NativeInvocationIntegrationTest {
         Path library = tempDir.resolve(NativeTestPlatform.libraryFileName("fixture"));
         Files.writeString(source, """
                 #include <cstdint>
-                extern "C" int sum_int(int a, int b) { return a + b; }
-                extern "C" double average_double(double* values, int length) {
+                #ifdef _WIN32
+                #define CPPBRIDGE_EXPORT extern "C" __declspec(dllexport)
+                #else
+                #define CPPBRIDGE_EXPORT extern "C"
+                #endif
+                CPPBRIDGE_EXPORT int sum_int(int a, int b) { return a + b; }
+                CPPBRIDGE_EXPORT double average_double(double* values, int length) {
                     double total = 0.0;
                     for (int i = 0; i < length; i++) total += values[i];
                     return length == 0 ? 0.0 : total / length;
                 }
-                extern "C" void fill_bytes(int8_t* values, int length) {
+                CPPBRIDGE_EXPORT void fill_bytes(int8_t* values, int length) {
                     for (int i = 0; i < length; i++) values[i] = 9;
                 }
-                extern "C" void add_ints(int* values, int length, int delta) {
+                CPPBRIDGE_EXPORT void add_ints(int* values, int length, int delta) {
                     for (int i = 0; i < length; i++) values[i] += delta;
                 }
-                extern "C" void multiply_doubles(double* values, int length, double factor) {
+                CPPBRIDGE_EXPORT void multiply_doubles(double* values, int length, double factor) {
                     for (int i = 0; i < length; i++) values[i] *= factor;
                 }
                 """, StandardCharsets.UTF_8);
 
         List<String> command = new ArrayList<>();
         command.add(NativeTestPlatform.compiler());
-        command.add("-O2");
-        command.add("-std=c++20");
-        command.add("-shared");
-        if (!NativeTestPlatform.isWindows()) {
+        if (NativeTestPlatform.isWindows()) {
+            command.add("/nologo");
+            command.add("/O2");
+            command.add("/std:c++20");
+            command.add("/LD");
+        } else {
+            command.add("-O2");
+            command.add("-std=c++20");
+            command.add("-shared");
             command.add("-fPIC");
         }
         command.add(source.toAbsolutePath().toString());
@@ -154,6 +169,20 @@ class NativeInvocationIntegrationTest {
                 return "cl";
             }
             return "g++";
+        }
+
+        static boolean isCompilerAvailable() {
+            try {
+                Process process = new ProcessBuilder(compiler()).redirectErrorStream(true).start();
+                process.getInputStream().readAllBytes();
+                process.waitFor();
+                return true;
+            } catch (IOException exception) {
+                return false;
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
         }
 
         static String libraryFileName(String name) {
