@@ -8,5 +8,11 @@ cd "$REPO_ROOT"
 OUT="target/cppbridgej-source.zip"
 mkdir -p target
 rm -f "$OUT"
-zip -qr "$OUT" .   -x "*/target/*"   -x ".git/*"   -x ".idea/*"   -x "*.DS_Store"
+zip -qr "$OUT" . \
+  -x "target/*" \
+  -x "*/target/*" \
+  -x ".git/*" \
+  -x ".idea/*" \
+  -x ".vscode/*" \
+  -x "*.DS_Store"
 echo "Created $OUT"
