@@ -43,8 +43,13 @@ The native build report includes:
 Platform inspection commands:
 
 ```text
-macOS/Linux: nm -g <library>
-Windows:     dumpbin /EXPORTS <library>
+macOS:  nm -gU <library>
+Linux:  nm -D --defined-only -g <library>
+Windows: dumpbin /EXPORTS <library>
 ```
 
-If symbol validation fails, check that exported functions use `extern "C"` and that names in `expectedSymbols` match the C ABI names exactly.
+Only defined external symbols are considered exports. Undefined or imported symbols are ignored, so output like `U missing_symbol` from `nm` does not satisfy `expectedSymbols`.
+
+If the inspection command cannot run or exits with an error while `expectedSymbols` is configured, the build fails with a symbol-inspection error. This is distinct from a successful inspection that reports missing symbols.
+
+If symbol validation fails, check that exported functions use `extern "C"` and that names in `expectedSymbols` match the C ABI names exactly. On Windows, exported functions must use `__declspec(dllexport)` or an equivalent export mechanism.

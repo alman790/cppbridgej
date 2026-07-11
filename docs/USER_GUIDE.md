@@ -42,6 +42,8 @@ CPPBRIDGE_EXPORT int sum_int(int a, int b) {
 }
 ```
 
+Only abstract interface methods are native bindings. Default and static interface methods remain Java methods and are ignored by the runtime binding inspector and by `CppBridge.load(...)` native-symbol resolution.
+
 ## Scalars
 
 Supported scalar Java types:
@@ -97,6 +99,8 @@ NativeFloatArray
 NativeDoubleArray
 ```
 
+Managed native arrays own confined FFM arenas. Use each instance from the thread that created it, including `segment()`, copy helpers, native calls that receive it, and `close()`.
+
 ## Build-time symbol validation
 
 ```xml
@@ -108,6 +112,8 @@ NativeDoubleArray
 
 If a configured symbol is missing, the Maven build fails. Reports are written to `target/cppbridge/`.
 
+The plugin accepts only defined exported symbols. Undefined or imported entries such as `U missing_symbol` from `nm` are ignored and cannot satisfy `expectedSymbols`.
+
 ## Runtime inspection
 
 ```java
@@ -116,6 +122,14 @@ System.out.println(report.toText());
 ```
 
 Use this when checking how Java methods map to native symbols.
+
+`CppBridge.load(...)` performs the same bindable-method selection as the inspector. A missing native symbol or unsupported signature fails at load time before the first native call.
+
+## Threading
+
+`CppBridge.load(...)` returns a proxy that can be shared between threads after construction. Method handles are cached in a concurrent cache and heap-array marshalling uses per-call temporary memory.
+
+Sharing Java arrays or managed native arrays between concurrent calls is still the caller's responsibility. Native functions must be reentrant for concurrent use, and mutable buffers need external synchronization when multiple threads access the same storage.
 
 ## Usage guidelines
 

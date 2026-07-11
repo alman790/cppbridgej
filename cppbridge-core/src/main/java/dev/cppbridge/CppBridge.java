@@ -113,7 +113,7 @@ public final class CppBridge {
         Object proxy = Proxy.newProxyInstance(
                 apiType.getClassLoader(),
                 new Class<?>[]{apiType},
-                new NativeInvocationHandler(libraryPath)
+                new NativeInvocationHandler(apiType, libraryPath)
         );
 
         return apiType.cast(proxy);

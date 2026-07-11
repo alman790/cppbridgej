@@ -47,7 +47,7 @@ jobs:
           if-no-files-found: ignore
 
   windows-smoke:
-    name: Windows smoke
+    name: Windows native
     runs-on: windows-latest
 
     steps:
@@ -61,5 +61,34 @@ jobs:
           java-version: "22"
           cache: maven
 
-      - name: Verify Java modules
-        run: mvn -B -pl cppbridge-core,cppbridge-maven-plugin clean verify
+      - name: Activate MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Verify native toolchain
+        shell: pwsh
+        run: |
+          $cl = Get-Command cl.exe -ErrorAction Stop
+          $dumpbin = Get-Command dumpbin.exe -ErrorAction Stop
+
+          Write-Host "cl: $($cl.Source)"
+          Write-Host "dumpbin: $($dumpbin.Source)"
+
+          where.exe cl
+          if ($LASTEXITCODE -ne 0) {
+            throw "cl.exe is not available on PATH"
+          }
+
+          where.exe dumpbin
+          if ($LASTEXITCODE -ne 0) {
+            throw "dumpbin.exe is not available on PATH"
+          }
+
+      - name: Verify Java modules with native compiler required
+        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
+
+      - name: Build and test native example
+        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
+
+      - name: Show native build reports
+        shell: bash
+        run: ./scripts/show-build-reports.sh
