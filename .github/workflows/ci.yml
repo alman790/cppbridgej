@@ -88,3 +88,7 @@ jobs:
 
       - name: Build and test native example
         run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
+
+      - name: Show native build reports
+        shell: bash
+        run: ./scripts/show-build-reports.sh
