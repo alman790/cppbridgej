@@ -13,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -126,7 +125,10 @@ public final class CompileCppMojo extends AbstractMojo {
         }
 
         NativeSymbolReport symbolReport = inspectExportedSymbols(platform, outputLibrary);
-        List<String> missingSymbols = findMissingSymbols(symbolReport.normalizedSymbols());
+        if (symbolReport.inspectionFailed() && expectedSymbols != null && !expectedSymbols.isEmpty()) {
+            throw new MojoExecutionException(symbolReport.message());
+        }
+        List<String> missingSymbols = findMissingSymbols(platform, symbolReport.normalizedSymbols());
 
         if (generateBuildReport) {
             writeReports(platform, cppFiles, outputLibrary, command, compileResult, symbolReport, missingSymbols);
@@ -159,58 +161,16 @@ public final class CompileCppMojo extends AbstractMojo {
         }
     }
 
-    private List<String> buildCommand(Platform platform, List<Path> cppFiles, Path outputLibrary) {
-        if (platform == Platform.WINDOWS) {
-            return buildMsvcCommand(cppFiles, outputLibrary);
-        }
-        return buildUnixCommand(platform, cppFiles, outputLibrary);
-    }
-
-    private List<String> buildUnixCommand(Platform platform, List<Path> cppFiles, Path outputLibrary) {
-        String selectedCompiler = compiler == null || compiler.isBlank()
-                ? platform.defaultCompiler()
-                : compiler;
-
-        List<String> command = new ArrayList<>();
-        command.add(selectedCompiler);
-        command.add("-" + optimizationLevel);
-        command.add("-std=" + cppStandard);
-        command.add("-shared");
-        command.add("-fPIC");
-        addExtraCompilerArgs(command);
-        for (Path cppFile : cppFiles) {
-            command.add(cppFile.toAbsolutePath().toString());
-        }
-        command.add("-o");
-        command.add(outputLibrary.toAbsolutePath().toString());
-        return command;
-    }
-
-    private void addExtraCompilerArgs(List<String> command) {
-        if (extraCompilerArgs == null || extraCompilerArgs.isEmpty()) {
-            return;
-        }
-        for (String arg : extraCompilerArgs) {
-            if (arg != null && !arg.isBlank()) {
-                command.add(arg);
-            }
-        }
-    }
-
-    private List<String> buildMsvcCommand(List<Path> cppFiles, Path outputLibrary) {
-        String selectedCompiler = compiler == null || compiler.isBlank() ? "cl" : compiler;
-
-        List<String> command = new ArrayList<>();
-        command.add(selectedCompiler);
-        command.add("/O2");
-        command.add("/LD");
-        command.add("/EHsc");
-        addExtraCompilerArgs(command);
-        for (Path cppFile : cppFiles) {
-            command.add(cppFile.toAbsolutePath().toString());
-        }
-        command.add("/Fe:" + outputLibrary.toAbsolutePath());
-        return command;
+    private List<String> buildCommand(Platform platform, List<Path> cppFiles, Path outputLibrary) throws MojoExecutionException {
+        return CppCompilerCommandBuilder.build(
+                platform,
+                compiler,
+                optimizationLevel,
+                cppStandard,
+                extraCompilerArgs,
+                cppFiles,
+                outputLibrary
+        );
     }
 
     private CommandResult runCommand(List<String> command) throws MojoExecutionException {
@@ -230,72 +190,10 @@ public final class CompileCppMojo extends AbstractMojo {
     }
 
     private NativeSymbolReport inspectExportedSymbols(Platform platform, Path outputLibrary) {
-        List<String> command = platform == Platform.WINDOWS
-                ? List.of("dumpbin", "/EXPORTS", outputLibrary.toAbsolutePath().toString())
-                : List.of("nm", "-g", outputLibrary.toAbsolutePath().toString());
-
-        try {
-            CommandResult result = runCommand(command);
-            if (result.exitCode() != 0) {
-                return new NativeSymbolReport(command, result.output(), Set.of(), Set.of(),
-                        "Symbol inspection command failed with exit code " + result.exitCode());
-            }
-            Set<String> rawSymbols = parseSymbols(platform, result.output());
-            Set<String> normalizedSymbols = new LinkedHashSet<>();
-            for (String symbol : rawSymbols) {
-                normalizedSymbols.add(normalizeSymbol(symbol));
-            }
-            return new NativeSymbolReport(command, result.output(), rawSymbols, normalizedSymbols, "");
-        } catch (MojoExecutionException exception) {
-            return new NativeSymbolReport(command, "", Set.of(), Set.of(),
-                    "Cannot inspect exported symbols. Is nm/dumpbin available? " + exception.getMessage());
-        }
+        return NativeSymbolInspector.inspect(platform, outputLibrary, this::runCommand);
     }
 
-    private Set<String> parseSymbols(Platform platform, String output) {
-        Set<String> symbols = new LinkedHashSet<>();
-        for (String line : output.split("\\R")) {
-            String trimmed = line.trim();
-            if (trimmed.isBlank()) {
-                continue;
-            }
-            if (platform == Platform.WINDOWS) {
-                parseDumpbinLine(trimmed, symbols);
-            } else {
-                parseNmLine(trimmed, symbols);
-            }
-        }
-        return symbols;
-    }
-
-    private void parseNmLine(String line, Set<String> symbols) {
-        String[] parts = line.split("\\s+");
-        if (parts.length == 0) {
-            return;
-        }
-        String candidate = parts[parts.length - 1];
-        if (candidate.contains("/") || candidate.contains(".")) {
-            return;
-        }
-        symbols.add(candidate);
-    }
-
-    private void parseDumpbinLine(String line, Set<String> symbols) {
-        String[] parts = line.split("\\s+");
-        if (parts.length >= 4 && parts[0].chars().allMatch(Character::isDigit)) {
-            symbols.add(parts[3]);
-        }
-    }
-
-    private String normalizeSymbol(String symbol) {
-        String normalized = symbol == null ? "" : symbol.trim();
-        while (normalized.startsWith("_")) {
-            normalized = normalized.substring(1);
-        }
-        return normalized;
-    }
-
-    private List<String> findMissingSymbols(Set<String> normalizedSymbols) {
+    private List<String> findMissingSymbols(Platform platform, Set<String> normalizedSymbols) {
         if (expectedSymbols == null || expectedSymbols.isEmpty()) {
             return List.of();
         }
@@ -304,7 +202,7 @@ public final class CompileCppMojo extends AbstractMojo {
             if (expectedSymbol == null || expectedSymbol.isBlank()) {
                 continue;
             }
-            String normalizedExpected = normalizeSymbol(expectedSymbol);
+            String normalizedExpected = NativeSymbolInspector.normalizeSymbol(platform, expectedSymbol);
             if (!normalizedSymbols.contains(normalizedExpected)) {
                 missing.add(expectedSymbol);
             }
@@ -376,15 +274,4 @@ public final class CompileCppMojo extends AbstractMojo {
         getLog().info("CppBridgeJ native build report: " + buildReport.toAbsolutePath());
     }
 
-    private record CommandResult(int exitCode, String output) {
-    }
-
-    private record NativeSymbolReport(
-            List<String> command,
-            String rawOutput,
-            Set<String> rawSymbols,
-            Set<String> normalizedSymbols,
-            String message
-    ) {
-    }
 }
