@@ -1,0 +1,34 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>it.cppbridge</groupId>
+    <artifactId>custom-args-output</artifactId>
+    <version>1.0.0</version>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>dev.cppbridge</groupId>
+                <artifactId>cppbridge-maven-plugin</artifactId>
+                <version>1.0.0-rc2</version>
+                <configuration>
+                    <libraryName>custom</libraryName>
+                    <outputDirectory>${project.build.directory}/custom-native</outputDirectory>
+                    <optimizationLevel>O0</optimizationLevel>
+                    <cppStandard>c++17</cppStandard>
+                    <extraCompilerArgs>
+                        <extraCompilerArg>-DCPPBRIDGE_CUSTOM_ARG=1</extraCompilerArg>
+                    </extraCompilerArgs>
+                    <expectedSymbols>
+                        <expectedSymbol>custom_value</expectedSymbol>
+                    </expectedSymbols>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals><goal>compile-cpp</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
