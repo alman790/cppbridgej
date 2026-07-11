@@ -5,7 +5,6 @@ import dev.cppbridge.annotations.CppFunction;
 import dev.cppbridge.annotations.CppModule;
 import dev.cppbridge.memory.NativeDoubleArray;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,9 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class NativeInvocationIntegrationTest {
-    @TempDir
-    Path tempDir;
-
     @Test
     void invokesNativeScalarsHeapArraysAndManagedArrays() throws Exception {
         requireNativeCompiler();
@@ -139,6 +135,7 @@ public class NativeInvocationIntegrationTest {
     }
 
     private Path compileFixture() throws Exception {
+        Path tempDir = Files.createTempDirectory(nativeFixtureRoot(), "fixture-");
         Path source = tempDir.resolve("fixture.cpp");
         Path library = tempDir.resolve(NativeTestPlatform.libraryFileName("fixture"));
         Files.writeString(source, """
@@ -194,6 +191,12 @@ public class NativeInvocationIntegrationTest {
             throw new IOException("Native fixture compilation failed: " + output);
         }
         return library;
+    }
+
+    private static Path nativeFixtureRoot() throws IOException {
+        Path root = Path.of("target", "native-test-fixtures").toAbsolutePath().normalize();
+        Files.createDirectories(root);
+        return root;
     }
 
     @CppModule(libraryName = "fixture")
