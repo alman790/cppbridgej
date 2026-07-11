@@ -84,7 +84,7 @@ jobs:
           }
 
       - name: Verify Java modules with native compiler required
-        run: mvn -B -Dcppbridge.requireNativeCompiler=true -pl cppbridge-core,cppbridge-maven-plugin clean verify
+        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
 
       - name: Build and test native example
-        run: mvn -B -Dcppbridge.requireNativeCompiler=true -pl cppbridge-example -am clean verify
+        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
