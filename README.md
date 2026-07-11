@@ -9,6 +9,7 @@ It provides:
 - heap-array and off-heap array mapping for primitive data;
 - runtime binding diagnostics;
 - build-time symbol validation;
+- thread-safe proxy dispatch for shared API instances;
 - JMH benchmarks for comparing Java and native implementations.
 
 The project targets coarse-grained native kernels: image buffers, numeric transforms, audio buffers, matrix operations, and simulation steps. It is not intended for replacing small Java methods with native calls.
@@ -20,7 +21,7 @@ The project targets coarse-grained native kernels: image buffers, numeric transf
 - C++ compiler:
   - macOS: `clang++`
   - Linux: `g++`
-  - Windows: MSVC `cl` from a Developer Command Prompt
+  - Windows: MSVC `cl` and `dumpbin` from a Developer Command Prompt
 
 Check the active JDK:
 
@@ -173,7 +174,15 @@ target/cppbridge/exported-symbols.txt
 target/cppbridge/missing-symbols.txt
 ```
 
-If `expectedSymbols` contains a symbol that is not exported by the shared library, the build fails by default.
+If `expectedSymbols` contains a symbol that is not exported by the shared library, the build fails by default. The plugin inspects only defined exported symbols:
+
+```text
+macOS:  nm -gU <library>
+Linux:  nm -D --defined-only -g <library>
+Windows: dumpbin /EXPORTS <library>
+```
+
+Undefined or imported symbols are not accepted as exports. If the inspection tool itself fails, the build reports a symbol-inspection failure instead of reporting every expected symbol as missing.
 
 ## Array mapping
 
@@ -226,6 +235,24 @@ Supported wrappers:
 - `NativeDoubleArray`
 
 These wrappers avoid copying the same array into native memory on every call.
+
+Managed native arrays own confined FFM arenas. Create, read, write, and close a managed native array on the owning thread unless the implementation changes to shared arenas in a future release.
+
+## Runtime binding
+
+`CppBridge.load(...)` validates native bindings eagerly. Loading fails before the first invocation when an abstract interface method cannot resolve its native symbol or has an unsupported signature.
+
+Default interface methods stay Java methods:
+
+```java
+default int sumTwice(int a, int b) {
+    return sum(a, b) * 2;
+}
+```
+
+They are not included in binding reports, are not resolved as native symbols, and run through the Java default-method implementation.
+
+The generated proxy can be shared across threads after loading. Each call uses per-call temporary native memory for heap-array marshalling. Usual Java and native data-race rules still apply: do not mutate the same heap array or managed native array concurrently unless the native function and the Java caller coordinate access.
 
 ## Binding report
 
@@ -309,6 +336,7 @@ Project documentation:
 - `docs/ARCHITECTURE.md`
 - `docs/BUILD_TIME_VALIDATION.md`
 - `docs/BINDING_REPORT.md`
+- `docs/PUBLISHING.md`
 - `docs/BENCHMARK_RESULTS_MACBOOK_JDK22.md`
 - `docs/KNOWN_LIMITATIONS.md`
 - `docs/SECURITY_MODEL.md`

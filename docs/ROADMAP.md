@@ -3,8 +3,6 @@
 ## 1.0.0
 
 - Stabilize public API names.
-- Add Maven plugin tests for compiler failure and missing symbols.
-- Improve Windows documentation.
 - Add more example modules.
 - Prepare Maven Central metadata.
 

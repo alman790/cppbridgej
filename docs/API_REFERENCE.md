@@ -8,7 +8,7 @@ T CppBridge.load(Class<T> api, Path libraryPath)
 BindingReport CppBridge.inspect(Class<?> api)
 ```
 
-`load` creates a dynamic proxy for a Java interface annotated with `@CppModule`.
+`load` creates a dynamic proxy for a Java interface annotated with `@CppModule`. Bindable abstract methods are resolved eagerly, so missing native symbols and unsupported signatures fail during load.
 
 `inspect` returns runtime binding diagnostics without invoking native functions.
 
@@ -34,6 +34,8 @@ double average(double[] values);
 ```
 
 Maps a Java interface method to an exported native symbol.
+
+If the annotation value is empty, the Java method name is used as the native symbol. Default interface methods are not native bindings and execute as Java default methods.
 
 ## `@CppArray`
 
@@ -93,6 +95,8 @@ double[] toArray()
 void close()
 ```
 
+Managed native arrays use confined arenas and are thread-confined to their creating thread.
+
 ## Diagnostics
 
 ```java
@@ -110,3 +114,5 @@ MISSING_SYMBOL
 UNSUPPORTED_SIGNATURE
 INSPECTION_FAILED
 ```
+
+Binding reports include only bindable abstract interface methods. Default and static methods are skipped so runtime diagnostics and proxy loading agree on the same native surface.
