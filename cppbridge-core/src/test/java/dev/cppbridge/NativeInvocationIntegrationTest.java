@@ -11,23 +11,29 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-class NativeInvocationIntegrationTest {
+public class NativeInvocationIntegrationTest {
     @TempDir
     Path tempDir;
 
     @Test
     void invokesNativeScalarsHeapArraysAndManagedArrays() throws Exception {
-        assumeTrue(NativeTestPlatform.isCompilerAvailable(), NativeTestPlatform.compiler() + " is not available");
+        requireNativeCompiler();
 
         Path library = compileFixture();
         FixtureApi api = CppBridge.load(FixtureApi.class, library.toString());
@@ -56,19 +62,80 @@ class NativeInvocationIntegrationTest {
 
     @Test
     void wrapsNativeBindingFailuresWithActionableMessages() throws Exception {
-        assumeTrue(NativeTestPlatform.isCompilerAvailable(), NativeTestPlatform.compiler() + " is not available");
+        requireNativeCompiler();
 
         Path library = compileFixture();
-        MissingSymbolApi api = CppBridge.load(MissingSymbolApi.class, library.toString());
 
-        CppBridgeException missingSymbol = assertThrows(CppBridgeException.class, api::missing);
+        CppBridgeException missingSymbol = assertThrows(
+                CppBridgeException.class,
+                () -> CppBridge.load(MissingSymbolApi.class, library.toString())
+        );
         assertTrue(missingSymbol.getMessage().contains("Native symbol not found"));
 
         CppBridgeException nullArray = assertThrows(
                 CppBridgeException.class,
                 () -> CppBridge.load(FixtureApi.class, library.toString()).average(null)
         );
-        assertTrue(nullArray.getCause().getMessage().contains("Array argument cannot be null"));
+        assertTrue(nullArray.getMessage().contains("Array argument cannot be null"));
+    }
+
+    @Test
+    void sharedProxyCanInvokeNativeScalarsConcurrently() throws Exception {
+        requireNativeCompiler();
+
+        Path library = compileFixture();
+        FixtureApi api = CppBridge.load(FixtureApi.class, library.toString());
+
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+            int workers = 16;
+            int iterations = 500;
+            CountDownLatch start = new CountDownLatch(1);
+            ExecutorService executor = Executors.newFixedThreadPool(workers);
+            try {
+                List<Future<?>> futures = new ArrayList<>();
+                for (int worker = 0; worker < workers; worker++) {
+                    int workerId = worker;
+                    futures.add(executor.submit(() -> {
+                        start.await();
+                        for (int i = 0; i < iterations; i++) {
+                            int left = workerId + i;
+                            int right = i * 2;
+                            assertEquals(left + right, api.sum(left, right));
+                        }
+                        return null;
+                    }));
+                }
+                start.countDown();
+                for (Future<?> future : futures) {
+                    future.get();
+                }
+            } finally {
+                executor.shutdownNow();
+            }
+        });
+    }
+
+    @Test
+    void defaultMethodsUseJavaImplementation() throws Exception {
+        requireNativeCompiler();
+
+        DefaultMethodApi api = CppBridge.load(DefaultMethodApi.class, compileFixture().toString());
+
+        assertEquals(42, api.javaOnly());
+        assertEquals(11, api.addOne(10));
+        assertEquals(7, DefaultMethodApi.staticHelper());
+        assertTrue(api.toString().contains(DefaultMethodApi.class.getName()));
+        assertEquals(System.identityHashCode(api), api.hashCode());
+        assertEquals(api, api);
+        assertNotEquals(api, new Object());
+    }
+
+    private static void requireNativeCompiler() {
+        boolean available = NativeTestPlatform.isCompilerAvailable();
+        if (Boolean.getBoolean("cppbridge.requireNativeCompiler") && !available) {
+            throw new AssertionError(NativeTestPlatform.compiler() + " is required but is not available");
+        }
+        assumeTrue(available, NativeTestPlatform.compiler() + " is not available");
     }
 
     private Path compileFixture() throws Exception {
@@ -82,6 +149,7 @@ class NativeInvocationIntegrationTest {
                 #define CPPBRIDGE_EXPORT extern "C"
                 #endif
                 CPPBRIDGE_EXPORT int sum_int(int a, int b) { return a + b; }
+                CPPBRIDGE_EXPORT int explode_error() { return 1; }
                 CPPBRIDGE_EXPORT double average_double(double* values, int length) {
                     double total = 0.0;
                     for (int i = 0; i < length; i++) total += values[i];
@@ -150,6 +218,24 @@ class NativeInvocationIntegrationTest {
     interface MissingSymbolApi {
         @CppFunction("missing_symbol")
         int missing();
+    }
+
+    @CppModule(libraryName = "fixture")
+    public interface DefaultMethodApi {
+        @CppFunction("sum_int")
+        int sum(int a, int b);
+
+        default int javaOnly() {
+            return 42;
+        }
+
+        default int addOne(int value) {
+            return sum(value, 1);
+        }
+
+        static int staticHelper() {
+            return 7;
+        }
     }
 
     private static final class NativeTestPlatform {

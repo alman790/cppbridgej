@@ -18,10 +18,12 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Invocation handler used by CppBridgeJ dynamic proxies.
@@ -34,14 +36,15 @@ public final class NativeInvocationHandler implements InvocationHandler {
     private final Linker linker;
     private final Arena libraryArena;
     private final SymbolLookup symbolLookup;
-    private final Map<Method, MethodHandle> handleCache = new HashMap<>();
+    private final Map<Method, MethodHandle> handleCache = new ConcurrentHashMap<>();
 
     /**
      * Opens a native shared library and prepares symbol lookup.
      *
      * @param libraryPath path to the native shared library
      */
-    public NativeInvocationHandler(String libraryPath) {
+    public NativeInvocationHandler(Class<?> apiType, String libraryPath) {
+        Objects.requireNonNull(apiType, "apiType");
         Objects.requireNonNull(libraryPath, "libraryPath");
 
         Path path = Path.of(libraryPath).toAbsolutePath().normalize();
@@ -52,6 +55,8 @@ public final class NativeInvocationHandler implements InvocationHandler {
         this.linker = Linker.nativeLinker();
         this.libraryArena = Arena.global();
         this.symbolLookup = SymbolLookup.libraryLookup(path, libraryArena);
+
+        preloadHandles(apiType);
     }
 
     /**
@@ -61,6 +66,9 @@ public final class NativeInvocationHandler implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (method.getDeclaringClass() == Object.class) {
             return invokeObjectMethod(proxy, method, args);
+        }
+        if (method.isDefault()) {
+            return InvocationHandler.invokeDefault(proxy, method, args);
         }
 
         Object[] safeArgs = args == null ? new Object[0] : args;
@@ -111,9 +119,31 @@ public final class NativeInvocationHandler implements InvocationHandler {
             }
 
             return result;
+        } catch (CppBridgeException exception) {
+            throw exception;
+        } catch (Error error) {
+            throw error;
         } catch (Throwable throwable) {
-            throw new CppBridgeException("Native call failed: " + method.getName(), throwable);
+            throw wrapNativeFailure(method, throwable);
         }
+    }
+
+    static CppBridgeException wrapNativeFailure(Method method, Throwable throwable) throws Throwable {
+        if (throwable instanceof CppBridgeException exception) {
+            throw exception;
+        }
+        if (throwable instanceof Error error) {
+            throw error;
+        }
+        return new CppBridgeException("Native call failed: " + method.getName()
+                + " -> " + resolveNativeName(method), throwable);
+    }
+
+    private void preloadHandles(Class<?> apiType) {
+        Arrays.stream(apiType.getMethods())
+                .filter(NativeApiMethods::isBindable)
+                .sorted(Comparator.comparing(Method::getName))
+                .forEach(method -> handleCache.computeIfAbsent(method, this::createHandle));
     }
 
     private MethodHandle createHandle(Method method) {

@@ -22,6 +22,14 @@ class BindingReportTest {
 
         @CppFunction("bad_return")
         String unsupportedReturn();
+
+        default int javaOnly() {
+            return 42;
+        }
+
+        static int staticHelper() {
+            return 7;
+        }
     }
 
     @Test
@@ -33,6 +41,9 @@ class BindingReportTest {
         assertTrue(report.toText().contains("CppBridgeJ binding report"));
         assertTrue(report.toText().contains("int sum_int(int, int)"));
         assertTrue(report.toText().contains("void multiply_each_double(double*, int length, double)"));
+        assertEquals(3, report.entries().size());
+        assertFalse(report.toText().contains("javaOnly"));
+        assertFalse(report.toText().contains("staticHelper"));
         assertTrue(report.entries().stream().anyMatch(entry -> entry.status() == BindingStatus.LIBRARY_NOT_FOUND));
         assertTrue(report.entries().stream().anyMatch(entry -> entry.status() == BindingStatus.UNSUPPORTED_SIGNATURE));
     }

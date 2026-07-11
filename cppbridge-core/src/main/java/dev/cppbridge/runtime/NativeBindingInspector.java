@@ -10,7 +10,6 @@ import dev.cppbridge.diagnostics.BindingStatus;
 import java.lang.foreign.Arena;
 import java.lang.foreign.SymbolLookup;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -55,7 +54,7 @@ public final class NativeBindingInspector {
         Method[] methods = apiType.getMethods();
         List<Method> apiMethods = new ArrayList<>();
         for (Method method : methods) {
-            if (method.getDeclaringClass() != Object.class && !method.isDefault() && !Modifier.isStatic(method.getModifiers())) {
+            if (NativeApiMethods.isBindable(method)) {
                 apiMethods.add(method);
             }
         }
