@@ -8,6 +8,8 @@
 #define CPPBRIDGE_EXPORT extern "C"
 #endif
 
-CPPBRIDGE_EXPORT int custom_value() {
+#include <cstdint>
+
+CPPBRIDGE_EXPORT std::int32_t custom_value() {
     return 7;
 }

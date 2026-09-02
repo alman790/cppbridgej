@@ -4,6 +4,8 @@
 #define CPPBRIDGE_EXPORT extern "C"
 #endif
 
-CPPBRIDGE_EXPORT int present_symbol() {
+#include <cstdint>
+
+CPPBRIDGE_EXPORT std::int32_t present_symbol() {
     return 1;
 }

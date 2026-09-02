@@ -138,7 +138,7 @@ public final class NativeBindingInspector {
         for (Class<?> parameterType : method.getParameterTypes()) {
             if (NativeTypeMapper.isArrayLike(parameterType)) {
                 joiner.add(nativePointerType(parameterType));
-                joiner.add("int length");
+                joiner.add("int32_t length");
             } else {
                 joiner.add(nativeScalarType(parameterType));
             }
@@ -170,7 +170,7 @@ public final class NativeBindingInspector {
             return "int8_t";
         }
         if (type == int.class || type == Integer.class) {
-            return "int";
+            return "int32_t";
         }
         if (type == long.class || type == Long.class) {
             return "int64_t";

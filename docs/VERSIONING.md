@@ -3,7 +3,7 @@
 Current version:
 
 ```text
-1.0.0-rc2
+1.0.0-rc3
 ```
 
 Release candidates may still change the API before `1.0.0`.

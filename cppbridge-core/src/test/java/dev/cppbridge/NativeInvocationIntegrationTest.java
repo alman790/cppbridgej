@@ -145,21 +145,21 @@ public class NativeInvocationIntegrationTest {
                 #else
                 #define CPPBRIDGE_EXPORT extern "C"
                 #endif
-                CPPBRIDGE_EXPORT int sum_int(int a, int b) { return a + b; }
-                CPPBRIDGE_EXPORT int explode_error() { return 1; }
-                CPPBRIDGE_EXPORT double average_double(double* values, int length) {
+                CPPBRIDGE_EXPORT std::int32_t sum_int(std::int32_t a, std::int32_t b) { return a + b; }
+                CPPBRIDGE_EXPORT std::int32_t explode_error() { return 1; }
+                CPPBRIDGE_EXPORT double average_double(double* values, std::int32_t length) {
                     double total = 0.0;
-                    for (int i = 0; i < length; i++) total += values[i];
+                    for (std::int32_t i = 0; i < length; i++) total += values[i];
                     return length == 0 ? 0.0 : total / length;
                 }
-                CPPBRIDGE_EXPORT void fill_bytes(std::int8_t* values, int length) {
-                    for (int i = 0; i < length; i++) values[i] = 9;
+                CPPBRIDGE_EXPORT void fill_bytes(std::int8_t* values, std::int32_t length) {
+                    for (std::int32_t i = 0; i < length; i++) values[i] = 9;
                 }
-                CPPBRIDGE_EXPORT void add_ints(std::int32_t* values, int length, int delta) {
-                    for (int i = 0; i < length; i++) values[i] += delta;
+                CPPBRIDGE_EXPORT void add_ints(std::int32_t* values, std::int32_t length, std::int32_t delta) {
+                    for (std::int32_t i = 0; i < length; i++) values[i] += delta;
                 }
-                CPPBRIDGE_EXPORT void multiply_doubles(double* values, int length, double factor) {
-                    for (int i = 0; i < length; i++) values[i] *= factor;
+                CPPBRIDGE_EXPORT void multiply_doubles(double* values, std::int32_t length, double factor) {
+                    for (std::int32_t i = 0; i < length; i++) values[i] *= factor;
                 }
                 """, StandardCharsets.UTF_8);
 

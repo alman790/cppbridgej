@@ -57,7 +57,7 @@ Values:
 | Java type | Native boundary type |
 | --- | --- |
 | `byte` | `std::int8_t` or `std::uint8_t` |
-| `int` | `std::int32_t` or a known 32-bit `int` |
+| `int` | `std::int32_t` |
 | `long` | `std::int64_t` |
 | `float` | `float` |
 | `double` | `double` |
@@ -75,7 +75,7 @@ float[]
 double[]
 ```
 
-Heap arrays are mapped to pointer plus `int length`.
+Heap arrays are mapped to pointer plus a signed 32-bit `length`.
 
 ## Managed native arrays
 

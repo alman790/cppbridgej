@@ -33,7 +33,7 @@ java --enable-native-access=ALL-UNNAMED -jar target/benchmarks.jar 'ArrayBenchma
 
 ## Versioning
 
-Update the root version and all module parent versions together. For the next release after `1.0.0-rc2`, use `1.0.0-rc3` unless the release owner chooses to cut `1.0.0`.
+Update the root version and all module parent versions together. For the next stable release after `1.0.0-rc3`, use `1.0.0` unless a release issue records another candidate.
 
 Update:
 
@@ -68,7 +68,7 @@ CppBridgeJ uses the Central Portal publishing flow through `org.sonatype.central
 mvn -B -Pcentral-publish -DskipTests deploy
 ```
 
-The parent POM, `cppbridge-core`, and `cppbridge-maven-plugin` are deployable. `cppbridge-example` and `cppbridge-benchmark` are intentionally skipped for deployment.
+The parent POM, `cppbridge-core`, and `cppbridge-maven-plugin` are deployable. `cppbridge-example` and `cppbridge-benchmark` set both Maven deploy skip and Central Portal `skipPublishing` through the shared skip property, so they must not appear in the Central bundle.
 
 Expected public artifacts:
 

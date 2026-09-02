@@ -39,8 +39,8 @@ class BindingReportTest {
         assertFalse(report.libraryExists());
         assertFalse(report.isHealthy());
         assertTrue(report.toText().contains("CppBridgeJ binding report"));
-        assertTrue(report.toText().contains("int sum_int(int, int)"));
-        assertTrue(report.toText().contains("void multiply_each_double(double*, int length, double)"));
+        assertTrue(report.toText().contains("int32_t sum_int(int32_t, int32_t)"));
+        assertTrue(report.toText().contains("void multiply_each_double(double*, int32_t length, double)"));
         assertEquals(3, report.entries().size());
         assertFalse(report.toText().contains("javaOnly"));
         assertFalse(report.toText().contains("staticHelper"));

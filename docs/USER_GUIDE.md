@@ -37,7 +37,7 @@ int sum(int a, int b);
 Native side:
 
 ```cpp
-CPPBRIDGE_EXPORT int sum_int(int a, int b) {
+CPPBRIDGE_EXPORT std::int32_t sum_int(std::int32_t a, std::int32_t b) {
     return a + b;
 }
 ```
@@ -68,7 +68,7 @@ double average(@CppArray(ArrayDirection.IN) double[] values);
 C++:
 
 ```cpp
-CPPBRIDGE_EXPORT double average_double(double* values, int length);
+CPPBRIDGE_EXPORT double average_double(double* values, std::int32_t length);
 ```
 
 Array direction:
