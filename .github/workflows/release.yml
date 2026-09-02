@@ -6,12 +6,79 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  verify:
+    name: Verify release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 22
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "22"
+          cache: maven
+
+      - name: Install Linux compiler
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y g++
+
+      - name: Activate MSVC developer environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Verify Windows native toolchain
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cl = Get-Command cl.exe -ErrorAction Stop
+          $dumpbin = Get-Command dumpbin.exe -ErrorAction Stop
+
+          Write-Host "cl: $($cl.Source)"
+          Write-Host "dumpbin: $($dumpbin.Source)"
+
+          where.exe cl
+          if ($LASTEXITCODE -ne 0) {
+            throw "cl.exe is not available on PATH"
+          }
+
+          where.exe dumpbin
+          if ($LASTEXITCODE -ne 0) {
+            throw "dumpbin.exe is not available on PATH"
+          }
+
+      - name: Verify Unix release build
+        if: runner.os != 'Windows'
+        run: mvn -B -Pcoverage clean verify
+
+      - name: Verify Windows Java modules with native compiler required
+        if: runner.os == 'Windows'
+        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
+
+      - name: Verify Windows native example
+        if: runner.os == 'Windows'
+        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
+
+      - name: Show Windows native build reports
+        if: runner.os == 'Windows'
+        shell: bash
+        run: ./scripts/show-build-reports.sh
+
   build-release:
     name: Build release artifacts
     runs-on: ubuntu-latest
+    needs: verify
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -27,7 +94,7 @@ jobs:
       - name: Install compiler
         run: sudo apt-get update && sudo apt-get install -y g++
 
-      - name: Verify
+      - name: Verify release artifacts
         run: mvn -B -Pcoverage clean verify
 
       - name: Package source archive

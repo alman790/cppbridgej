@@ -11,6 +11,30 @@
 
     <name>CppBridgeJ Parent</name>
     <description>Java framework for calling C++ kernels through FFM/native backend.</description>
+    <url>https://github.com/alman790/cppbridgej</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/license/mit</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>alman790</id>
+            <name>alman790</name>
+            <url>https://github.com/alman790</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/alman790/cppbridgej.git</connection>
+        <developerConnection>scm:git:git@github.com:alman790/cppbridgej.git</developerConnection>
+        <url>https://github.com/alman790/cppbridgej</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <modules>
         <module>cppbridge-core</module>
@@ -28,6 +52,7 @@
         <junit.version>6.1.1</junit.version>
         <jacoco.version>0.8.12</jacoco.version>
         <jacoco.coverage.minimum>0.80</jacoco.coverage.minimum>
+        <maven.deploy.skip>false</maven.deploy.skip>
         <argLine></argLine>
     </properties>
 
@@ -69,6 +94,16 @@
                         <source>${maven.compiler.release}</source>
                         <doclint>all,-missing</doclint>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.2.8</version>
                 </plugin>
                 <plugin>
                     <groupId>org.jacoco</groupId>
@@ -126,6 +161,35 @@
                                         <exclude>dev/cppbridge/maven/CompileCppMojo*</exclude>
                                     </excludes>
                                 </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>central-publish</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.9.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
                             </execution>
                         </executions>
                     </plugin>

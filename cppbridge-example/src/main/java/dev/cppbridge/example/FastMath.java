@@ -8,10 +8,10 @@ import dev.cppbridge.memory.NativeByteArray;
 import dev.cppbridge.memory.NativeDoubleArray;
 import dev.cppbridge.memory.NativeLongArray;
 
-@CppModule(libraryName = "fastmath")
 /**
  * Example CppBridgeJ API backed by {@code src/main/cpp/fastmath.cpp}.
  */
+@CppModule(libraryName = "fastmath")
 public interface FastMath {
     @CppFunction("sum_int")
     int sum(int a, int b);

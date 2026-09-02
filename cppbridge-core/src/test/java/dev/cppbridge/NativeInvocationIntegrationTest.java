@@ -152,10 +152,10 @@ public class NativeInvocationIntegrationTest {
                     for (int i = 0; i < length; i++) total += values[i];
                     return length == 0 ? 0.0 : total / length;
                 }
-                CPPBRIDGE_EXPORT void fill_bytes(int8_t* values, int length) {
+                CPPBRIDGE_EXPORT void fill_bytes(std::int8_t* values, int length) {
                     for (int i = 0; i < length; i++) values[i] = 9;
                 }
-                CPPBRIDGE_EXPORT void add_ints(int* values, int length, int delta) {
+                CPPBRIDGE_EXPORT void add_ints(std::int32_t* values, int length, int delta) {
                     for (int i = 0; i < length; i++) values[i] += delta;
                 }
                 CPPBRIDGE_EXPORT void multiply_doubles(double* values, int length, double factor) {
@@ -262,10 +262,12 @@ public class NativeInvocationIntegrationTest {
 
         static boolean isCompilerAvailable() {
             try {
-                Process process = new ProcessBuilder(compiler()).redirectErrorStream(true).start();
+                List<String> command = isWindows()
+                        ? List.of("where.exe", compiler())
+                        : List.of("which", compiler());
+                Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
                 process.getInputStream().readAllBytes();
-                process.waitFor();
-                return true;
+                return process.waitFor() == 0;
             } catch (IOException exception) {
                 return false;
             } catch (InterruptedException exception) {

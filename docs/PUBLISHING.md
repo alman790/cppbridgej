@@ -21,6 +21,8 @@ mvn -B -Pcoverage clean verify
 ./scripts/show-build-reports.sh
 ```
 
+The Maven Invoker integration tests include a consumer-style smoke project. It resolves `cppbridge-core` and `cppbridge-maven-plugin` from the isolated Invoker local repository, compiles a C++ fixture, validates exported symbols, loads the generated shared library, and invokes scalar and array functions.
+
 Run at least one JMH smoke from the benchmark module before changing benchmark documentation:
 
 ```bash
@@ -58,10 +60,20 @@ git push origin v1.0.0-rc3
 
 ## Maven Publication
 
-Publish from the release commit only. Keep credentials outside the repository in Maven settings or the CI secret store.
+Publish from the release commit only. Keep credentials and signing material outside the repository in Maven settings or the CI secret store.
+
+CppBridgeJ uses the Central Portal publishing flow through `org.sonatype.central:central-publishing-maven-plugin`. Configure a Maven server named `central` with the token username/password issued by the Central Portal, and configure GPG signing locally or in CI. Do not commit credentials or keys.
 
 ```bash
-mvn -B -DskipTests deploy
+mvn -B -Pcentral-publish -DskipTests deploy
 ```
+
+The parent POM, `cppbridge-core`, and `cppbridge-maven-plugin` are deployable. `cppbridge-example` and `cppbridge-benchmark` are intentionally skipped for deployment.
+
+Expected public artifacts:
+
+- `cppbridge-core` main JAR, sources JAR, JavaDoc JAR, POM, signatures;
+- `cppbridge-maven-plugin` main JAR, sources JAR, JavaDoc JAR, POM, signatures;
+- parent POM and signature.
 
 After publication, verify that the expected artifacts are visible in the target repository and that a fresh consumer project resolves both `cppbridge-core` and `cppbridge-maven-plugin`.

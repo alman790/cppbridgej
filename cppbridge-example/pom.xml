@@ -12,6 +12,11 @@
 
     <artifactId>cppbridge-example</artifactId>
     <name>CppBridgeJ Example</name>
+    <description>Runnable sample project for CppBridgeJ native bindings.</description>
+
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
 
     <dependencies>
         <dependency>

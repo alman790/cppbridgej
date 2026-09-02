@@ -4,8 +4,9 @@
 
 ```java
 T CppBridge.load(Class<T> api)
-T CppBridge.load(Class<T> api, Path libraryPath)
+T CppBridge.load(Class<T> api, String libraryPath)
 BindingReport CppBridge.inspect(Class<?> api)
+BindingReport CppBridge.inspect(Class<?> api, String libraryPath)
 ```
 
 `load` creates a dynamic proxy for a Java interface annotated with `@CppModule`. Bindable abstract methods are resolved eagerly, so missing native symbols and unsupported signatures fail during load.
@@ -53,14 +54,16 @@ Values:
 
 ## Supported scalar types
 
-```text
-byte
-int
-long
-float
-double
-void
-```
+| Java type | Native boundary type |
+| --- | --- |
+| `byte` | `std::int8_t` or `std::uint8_t` |
+| `int` | `std::int32_t` or a known 32-bit `int` |
+| `long` | `std::int64_t` |
+| `float` | `float` |
+| `double` | `double` |
+| `void` | `void` |
+
+CppBridgeJ validates Java declarations and exported symbol names. It does not inspect compiled native function signatures. The native library author must keep the exported C-compatible ABI exactly aligned with the Java interface. See `ABI_CONTRACT.md`.
 
 ## Supported heap arrays
 
