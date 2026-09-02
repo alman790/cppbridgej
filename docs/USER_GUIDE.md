@@ -52,6 +52,8 @@ Supported scalar Java types:
 byte, int, long, float, double, void
 ```
 
+Use fixed-width native types at the ABI boundary where width matters. Java `long` maps to a 64-bit FFM layout, so portable C++ code should use `std::int64_t`, not C/C++ `long`. See `ABI_CONTRACT.md` for the full mapping and validation guarantees.
+
 ## Heap arrays
 
 Primitive arrays are mapped as pointer plus length.

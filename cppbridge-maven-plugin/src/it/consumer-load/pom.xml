@@ -9,7 +9,7 @@
         <dependency>
             <groupId>dev.cppbridge</groupId>
             <artifactId>cppbridge-core</artifactId>
-            <version>1.0.0-rc2</version>
+            <version>${cppbridge.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -23,11 +23,12 @@
             <plugin>
                 <groupId>dev.cppbridge</groupId>
                 <artifactId>cppbridge-maven-plugin</artifactId>
-                <version>1.0.0-rc2</version>
+                <version>${cppbridge.version}</version>
                 <configuration>
                     <libraryName>consumer</libraryName>
                     <expectedSymbols>
                         <expectedSymbol>answer_value</expectedSymbol>
+                        <expectedSymbol>add_each</expectedSymbol>
                     </expectedSymbols>
                 </configuration>
                 <executions>

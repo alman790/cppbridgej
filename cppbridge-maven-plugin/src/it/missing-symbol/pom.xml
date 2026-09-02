@@ -10,7 +10,7 @@
             <plugin>
                 <groupId>dev.cppbridge</groupId>
                 <artifactId>cppbridge-maven-plugin</artifactId>
-                <version>1.0.0-rc2</version>
+                <version>${cppbridge.version}</version>
                 <configuration>
                     <libraryName>missing_symbol_fixture</libraryName>
                     <expectedSymbols>

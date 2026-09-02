@@ -19,6 +19,16 @@ mvn -B -Dcppbridge.requireNativeCompiler=true -pl cppbridge-example -am clean ve
 
 The benchmark suite is not part of the regular CI path because JMH results are noisy and increase build time.
 
+## Release gate
+
+Version tags run a release workflow that fails closed:
+
+- Ubuntu and macOS must pass `mvn -B -Pcoverage clean verify`;
+- Windows must activate MSVC, verify `cl` and `dumpbin`, run native compiler-backed core/plugin tests, run the native example, and print native build reports;
+- GitHub release artifacts are built only after all supported-platform verification jobs pass.
+
+Do not publish or announce a stable release from a run where any supported-platform job failed or was skipped unexpectedly.
+
 ## Local release checks
 
 ```bash

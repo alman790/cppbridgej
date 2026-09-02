@@ -190,7 +190,7 @@ Primitive Java arrays are passed as pointer plus length:
 
 ```text
 double[] -> double*, int length
-byte[]   -> uint8_t*, int length
+byte[]   -> int8_t* or uint8_t*, int length
 ```
 
 A Java method:
@@ -319,6 +319,8 @@ Not implemented yet:
 - Gradle plugin;
 - WASM backend.
 
+See `docs/ABI_CONTRACT.md` for the precise Java-to-native ABI contract. In particular, Java `long` maps to a 64-bit value and should use `std::int64_t` at the native boundary rather than C/C++ `long`.
+
 ## Documentation
 
 Generated JavaDoc is written to:
@@ -333,6 +335,7 @@ Project documentation:
 - `docs/QUICKSTART.md`
 - `docs/USER_GUIDE.md`
 - `docs/API_REFERENCE.md`
+- `docs/ABI_CONTRACT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/BUILD_TIME_VALIDATION.md`
 - `docs/BINDING_REPORT.md`

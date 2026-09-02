@@ -10,7 +10,7 @@
             <plugin>
                 <groupId>dev.cppbridge</groupId>
                 <artifactId>cppbridge-maven-plugin</artifactId>
-                <version>1.0.0-rc2</version>
+                <version>${cppbridge.version}</version>
                 <executions>
                     <execution>
                         <goals><goal>compile-cpp</goal></goals>

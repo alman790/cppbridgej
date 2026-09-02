@@ -29,8 +29,8 @@ CPPBRIDGE_EXPORT void multiply_each_double(double* values, int length, double fa
     }
 }
 
-CPPBRIDGE_EXPORT long long sum_long_array(long long* values, int length) {
-    long long total = 0;
+CPPBRIDGE_EXPORT std::int64_t sum_long_array(std::int64_t* values, int length) {
+    std::int64_t total = 0;
     for (int i = 0; i < length; i++) {
         total += values[i];
     }

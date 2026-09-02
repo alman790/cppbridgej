@@ -7,8 +7,14 @@ import dev.cppbridge.memory.NativeIntArray;
 import dev.cppbridge.memory.NativeLongArray;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class NativeArrayTest {
@@ -77,6 +83,41 @@ class NativeArrayTest {
             assertThrows(CppBridgeException.class, () -> floats.copyTo(new float[2]));
             assertThrows(CppBridgeException.class, () -> ints.copyTo(new int[2]));
             assertThrows(CppBridgeException.class, () -> longs.copyTo(new long[2]));
+        }
+    }
+
+    @Test
+    void nativeArraysSupportEmptyArraysAndDoubleClose() {
+        NativeDoubleArray values = NativeDoubleArray.copyOf(new double[0]);
+        assertEquals(0, values.length());
+        assertArrayEquals(new double[0], values.toArray());
+
+        values.close();
+        values.close();
+        assertThrows(CppBridgeException.class, values::toArray);
+    }
+
+    @Test
+    void nativeArraysFailPredictablyOnWrongThreadAccess() throws Exception {
+        try (NativeIntArray values = NativeIntArray.copyOf(new int[] {1, 2, 3})) {
+            Throwable getFailure = runOnOtherThread(() -> values.get(0));
+            assertInstanceOf(WrongThreadException.class, getFailure);
+
+            Throwable copyFailure = runOnOtherThread(() -> {
+                values.copyTo(new int[3]);
+                return null;
+            });
+            assertInstanceOf(WrongThreadException.class, copyFailure);
+        }
+    }
+
+    private static Throwable runOnOtherThread(Callable<?> callable) throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            ExecutionException exception = assertThrows(ExecutionException.class, () -> executor.submit(callable).get());
+            return exception.getCause();
+        } finally {
+            executor.shutdownNow();
         }
     }
 }

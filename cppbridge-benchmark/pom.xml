@@ -12,6 +12,11 @@
 
     <artifactId>cppbridge-benchmark</artifactId>
     <name>CppBridgeJ Benchmark</name>
+    <description>JMH benchmark suite for CppBridgeJ numeric and buffer workloads.</description>
+
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
 
     <dependencies>
         <dependency>
