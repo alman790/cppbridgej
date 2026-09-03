@@ -17,7 +17,7 @@ Library exists: true
 Healthy: true
 
 - double average(double[])
-  -> double average_double(double*, int length)
+  -> double average_double(double*, int32_t length)
   symbol: average_double
   status: OK
 ```

@@ -95,17 +95,19 @@ mvn -pl cppbridge-core,cppbridge-maven-plugin javadoc:javadoc
 C++ source in `src/main/cpp/fastmath.cpp`:
 
 ```cpp
+#include <cstdint>
+
 #ifdef _WIN32
 #define CPPBRIDGE_EXPORT extern "C" __declspec(dllexport)
 #else
 #define CPPBRIDGE_EXPORT extern "C"
 #endif
 
-CPPBRIDGE_EXPORT int sum_int(int a, int b) {
+CPPBRIDGE_EXPORT std::int32_t sum_int(std::int32_t a, std::int32_t b) {
     return a + b;
 }
 
-CPPBRIDGE_EXPORT double average_double(double* values, int length) {
+CPPBRIDGE_EXPORT double average_double(double* values, std::int32_t length) {
     if (length <= 0) {
         return 0.0;
     }
@@ -189,8 +191,8 @@ Undefined or imported symbols are not accepted as exports. If the inspection too
 Primitive Java arrays are passed as pointer plus length:
 
 ```text
-double[] -> double*, int length
-byte[]   -> int8_t* or uint8_t*, int length
+double[] -> double*, int32_t length
+byte[]   -> int8_t* or uint8_t*, int32_t length
 ```
 
 A Java method:
@@ -203,7 +205,7 @@ double average(@CppArray(ArrayDirection.IN) double[] values);
 expects this C++ function:
 
 ```cpp
-CPPBRIDGE_EXPORT double average_double(double* values, int length);
+CPPBRIDGE_EXPORT double average_double(double* values, std::int32_t length);
 ```
 
 `@CppArray` controls copy direction:
@@ -273,7 +275,7 @@ Library exists: true
 Healthy: true
 
 - double average(double[])
-  -> double average_double(double*, int length)
+  -> double average_double(double*, int32_t length)
   symbol: average_double
   status: OK
 ```

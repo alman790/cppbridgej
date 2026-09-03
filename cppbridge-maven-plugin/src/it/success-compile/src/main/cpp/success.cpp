@@ -4,6 +4,8 @@
 #define CPPBRIDGE_EXPORT extern "C"
 #endif
 
-CPPBRIDGE_EXPORT int success_value() {
+#include <cstdint>
+
+CPPBRIDGE_EXPORT std::int32_t success_value() {
     return 42;
 }

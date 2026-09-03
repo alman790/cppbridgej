@@ -1,12 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.0.0-rc3 - 2026-09-02
 
 - Documented the precise Java-to-native ABI contract, including portable handling for Java `long`.
 - Added release workflow gating across Ubuntu, macOS, and Windows before GitHub release artifact creation.
 - Added Maven Central Portal publication metadata/profile and attached sources/JavaDoc artifacts for public modules.
 - Strengthened consumer-style Maven Invoker validation to invoke both scalar and array native functions.
 - Added NativeArray lifecycle/thread-confinement tests.
+- Updated the Central Portal publishing plugin and explicitly skipped non-published modules in Central publication.
 
 ## 1.0.0-rc2 - 2026-07-08
 

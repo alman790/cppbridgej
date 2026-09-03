@@ -37,7 +37,7 @@ Scalars are mapped directly to FFM value layouts.
 Primitive heap arrays are copied into temporary native memory and passed as:
 
 ```text
-pointer, int length
+pointer, int32_t length
 ```
 
 Managed native arrays expose an existing `MemorySegment` and length. They avoid heap-to-native copy on repeated calls.

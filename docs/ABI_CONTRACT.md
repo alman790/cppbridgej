@@ -9,7 +9,7 @@ Use C-compatible exported functions. In C++ sources, export functions with `exte
 | Java type | FFM layout | Preferred C/C++ boundary type |
 | --- | --- | --- |
 | `byte` | `JAVA_BYTE` | `std::int8_t` or `std::uint8_t` |
-| `int` | `JAVA_INT` | `std::int32_t` or a known 32-bit `int` |
+| `int` | `JAVA_INT` | `std::int32_t` |
 | `long` | `JAVA_LONG` | `std::int64_t` |
 | `float` | `JAVA_FLOAT` | `float` |
 | `double` | `JAVA_DOUBLE` | `double` |
@@ -25,11 +25,11 @@ Primitive heap arrays and managed native arrays are passed as pointer plus signe
 
 | Java type | Preferred C/C++ parameters |
 | --- | --- |
-| `byte[]`, `NativeByteArray` | `std::int8_t* values, int length` or `std::uint8_t* values, int length` |
-| `int[]`, `NativeIntArray` | `std::int32_t* values, int length` |
-| `long[]`, `NativeLongArray` | `std::int64_t* values, int length` |
-| `float[]`, `NativeFloatArray` | `float* values, int length` |
-| `double[]`, `NativeDoubleArray` | `double* values, int length` |
+| `byte[]`, `NativeByteArray` | `std::int8_t* values, std::int32_t length` or `std::uint8_t* values, std::int32_t length` |
+| `int[]`, `NativeIntArray` | `std::int32_t* values, std::int32_t length` |
+| `long[]`, `NativeLongArray` | `std::int64_t* values, std::int32_t length` |
+| `float[]`, `NativeFloatArray` | `float* values, std::int32_t length` |
+| `double[]`, `NativeDoubleArray` | `double* values, std::int32_t length` |
 
 The Java side owns the `length` value. Native functions must respect it and must not read or write beyond the provided buffer.
 
