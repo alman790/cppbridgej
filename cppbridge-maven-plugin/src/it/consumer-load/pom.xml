@@ -5,6 +5,10 @@
     <groupId>it.cppbridge</groupId>
     <artifactId>consumer-load</artifactId>
     <version>1.0.0</version>
+    <properties>
+        <maven.compiler.release>22</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>dev.cppbridge</groupId>
@@ -26,6 +30,9 @@
                 <version>${cppbridge.version}</version>
                 <configuration>
                     <libraryName>consumer</libraryName>
+                    <includeDirectories>
+                        <includeDirectory>src/main/include/public headers</includeDirectory>
+                    </includeDirectories>
                     <expectedSymbols>
                         <expectedSymbol>answer_value</expectedSymbol>
                         <expectedSymbol>add_each</expectedSymbol>
@@ -34,6 +41,24 @@
                 <executions>
                     <execution>
                         <goals><goal>compile-cpp</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.15.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.6</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

@@ -3,13 +3,13 @@
 ## Development requirements
 
 - JDK 22+
-- Maven 3.9+
+- Maven Wrapper (included), or Maven 3.9+
 - `clang++`, `g++`, or MSVC `cl`
 
 ## Local validation
 
 ```bash
-mvn -Pcoverage clean verify
+./mvnw -Pcoverage clean verify
 ./scripts/run-example.sh
 ./scripts/show-build-reports.sh
 ```
@@ -66,7 +66,7 @@ Performance notes should include hardware, JVM version, compiler version, benchm
 Maintainers should release from a clean `main` branch:
 
 ```bash
-mvn -Pcoverage clean verify
+./mvnw -Pcoverage clean verify
 ./scripts/package-source.sh
 git tag vX.Y.Z
 git push origin main vX.Y.Z

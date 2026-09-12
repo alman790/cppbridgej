@@ -1,79 +1,25 @@
 # Publishing
 
-CppBridgeJ releases are Maven artifacts plus a source archive. Do not publish from a dirty worktree.
+## GitHub release
 
-## Preflight
+Use JDK 22 and the included Maven Wrapper. Run `./mvnw -B -Pcoverage -Dcppbridge.requireNativeCompiler=true clean verify` and `python scripts/package-release.py platform`. The latter extracts the distribution to a temporary directory and runs the packaged example without Maven or the source tree.
 
-Use JDK 22 unless a release issue explicitly records a newer baseline:
+Update the root and module POM versions together, `.github/release.json`, the changelog, and the versioned notes under `docs/releases/`. Open a pull request and require green CI on Linux, macOS, Windows, and JDK 26. Commit messages use two lowercase words.
 
-```bash
-java -version
-mvn -version
-git status --short --branch
-```
+Merging a release manifest change to `main` starts the release workflow. A matching `v*` tag or manual workflow run also starts it. Published versions are skipped and never overwritten. The workflow checks the version, verifies the full reactor on three platforms, tests each platform bundle, and assembles Maven artifacts and a source archive from the release commit.
 
-Run the release checks:
+A draft release receives the assets and `SHA256SUMS`. The workflow downloads them again and verifies every checksum before making the release public. If interrupted, rerun the same workflow: only a draft belonging to the same commit can be resumed. Never move a published tag.
 
-```bash
-mvn -B clean verify
-mvn -B -Pcoverage clean verify
-./scripts/run-example.sh
-./scripts/show-build-reports.sh
-```
+Source packaging uses `git archive HEAD` and rejects tracked worktree changes. Commit the release files before invoking `./scripts/package-source.sh`.
 
-The Maven Invoker integration tests include a consumer-style smoke project. It resolves `cppbridge-core` and `cppbridge-maven-plugin` from the isolated Invoker local repository, compiles a C++ fixture, validates exported symbols, loads the generated shared library, and invokes scalar and array functions.
+## Maven Central (pending)
 
-Run at least one JMH smoke from the benchmark module before changing benchmark documentation:
+The GitHub Maven ZIP is a local repository distribution, not proof of Central publication. Central requires verified access to the `dev.cppbridge` namespace, a Central Portal token, and GPG signing material. Keep credentials and keys outside the repository.
+
+Configure Maven server `central` with the Portal token and configure GPG signing, then publish from the verified release commit:
 
 ```bash
-mvn -B -pl cppbridge-benchmark -am clean package
-cd cppbridge-benchmark
-java --enable-native-access=ALL-UNNAMED -jar target/benchmarks.jar 'ArrayBenchmarks\.(javaAverageForLoop|cppAverageFfmNativeArray)' -wi 1 -i 1 -f 1 -r 100ms -w 100ms
+./mvnw -B -Pcentral-publish -DskipTests deploy
 ```
 
-## Versioning
-
-Update the root version and all module parent versions together. For the next stable release after `1.0.0-rc3`, use `1.0.0` unless a release issue records another candidate.
-
-Update:
-
-- `CHANGELOG.md`
-- `docs/RELEASE_CHECKLIST.md` if the process changed
-- benchmark docs only when new benchmark numbers were collected
-
-## Source Package
-
-```bash
-./scripts/package-source.sh
-```
-
-Check that the archive excludes `target/`, `.DS_Store`, and local IDE files.
-
-## Tagging
-
-Tag only after CI is green on the release commit:
-
-```bash
-git tag -a v1.0.0-rc3 -m "CppBridgeJ 1.0.0-rc3"
-git push origin v1.0.0-rc3
-```
-
-## Maven Publication
-
-Publish from the release commit only. Keep credentials and signing material outside the repository in Maven settings or the CI secret store.
-
-CppBridgeJ uses the Central Portal publishing flow through `org.sonatype.central:central-publishing-maven-plugin`. Configure a Maven server named `central` with the token username/password issued by the Central Portal, and configure GPG signing locally or in CI. Do not commit credentials or keys.
-
-```bash
-mvn -B -Pcentral-publish -DskipTests deploy
-```
-
-The parent POM, `cppbridge-core`, and `cppbridge-maven-plugin` are deployable. `cppbridge-example` and `cppbridge-benchmark` set both Maven deploy skip and Central Portal `skipPublishing` through the shared skip property, so they must not appear in the Central bundle.
-
-Expected public artifacts:
-
-- `cppbridge-core` main JAR, sources JAR, JavaDoc JAR, POM, signatures;
-- `cppbridge-maven-plugin` main JAR, sources JAR, JavaDoc JAR, POM, signatures;
-- parent POM and signature.
-
-After publication, verify that the expected artifacts are visible in the target repository and that a fresh consumer project resolves both `cppbridge-core` and `cppbridge-maven-plugin`.
+Only the parent POM, `cppbridge-core`, and `cppbridge-maven-plugin` are deployable. The example and benchmark skip publication. Verify POMs, main JARs, sources, JavaDoc, and signatures in Central, then run a fresh consumer resolving both runtime and plugin before updating the installation instructions.

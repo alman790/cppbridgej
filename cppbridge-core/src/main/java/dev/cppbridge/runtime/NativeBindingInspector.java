@@ -1,7 +1,6 @@
 package dev.cppbridge.runtime;
 
 import dev.cppbridge.CppBridgeException;
-import dev.cppbridge.annotations.CppFunction;
 import dev.cppbridge.annotations.CppModule;
 import dev.cppbridge.diagnostics.BindingReport;
 import dev.cppbridge.diagnostics.BindingReportEntry;
@@ -13,7 +12,6 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -39,31 +37,29 @@ public final class NativeBindingInspector {
      */
     public static BindingReport inspect(Class<?> apiType, CppModule module, String libraryPath) {
         Path path = Path.of(libraryPath).toAbsolutePath().normalize();
-        boolean libraryExists = Files.exists(path);
+        try (Arena arena = Arena.ofConfined()) {
+            return inspect(apiType, module, path, arena);
+        }
+    }
+
+    private static BindingReport inspect(Class<?> apiType, CppModule module, Path path, Arena arena) {
+        boolean libraryExists = Files.isRegularFile(path);
         List<BindingReportEntry> entries = new ArrayList<>();
 
         SymbolLookup lookup = null;
         if (libraryExists) {
             try {
-                lookup = SymbolLookup.libraryLookup(path, Arena.global());
-            } catch (Throwable throwable) {
+                lookup = SymbolLookup.libraryLookup(path, arena);
+            } catch (RuntimeException | UnsatisfiedLinkError throwable) {
                 return failedReport(apiType, module, path, "Could not open native library: " + throwable.getMessage());
             }
         }
 
-        Method[] methods = apiType.getMethods();
-        List<Method> apiMethods = new ArrayList<>();
-        for (Method method : methods) {
-            if (NativeApiMethods.isBindable(method)) {
-                apiMethods.add(method);
-            }
-        }
-        apiMethods.sort(Comparator.comparing(Method::getName));
-
-        for (Method method : apiMethods) {
-            String nativeSymbol = resolveNativeName(method);
+        for (Method method : NativeApiMethods.bindableMethods(apiType)) {
+            String nativeSymbol = NativeApiMethods.nativeName(method);
             String javaSignature = javaSignature(method);
             try {
+                NativeApiMethods.descriptor(method);
                 String nativeSignature = nativeSignature(method, nativeSymbol);
 
                 if (!libraryExists) {
@@ -93,7 +89,7 @@ public final class NativeBindingInspector {
                         BindingStatus.UNSUPPORTED_SIGNATURE,
                         exception.getMessage()
                 ));
-            } catch (Throwable throwable) {
+            } catch (RuntimeException | UnsatisfiedLinkError throwable) {
                 entries.add(new BindingReportEntry(
                         javaSignature,
                         nativeSymbol,
@@ -112,17 +108,9 @@ public final class NativeBindingInspector {
                 apiType.getName(),
                 module.mode().name(),
                 path.toString(),
-                Files.exists(path),
+                Files.isRegularFile(path),
                 List.of(new BindingReportEntry("<library>", "<open>", "<open>", BindingStatus.INSPECTION_FAILED, message))
         );
-    }
-
-    private static String resolveNativeName(Method method) {
-        CppFunction function = method.getAnnotation(CppFunction.class);
-        if (function == null || function.value().isBlank()) {
-            return method.getName();
-        }
-        return function.value();
     }
 
     private static String javaSignature(Method method) {

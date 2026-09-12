@@ -7,6 +7,7 @@ import dev.cppbridge.runtime.NativeInvocationHandler;
 import dev.cppbridge.runtime.NativeLibraryResolver;
 
 import java.lang.reflect.Proxy;
+import java.util.Objects;
 
 /**
  * Entry point for loading Java interfaces backed by native C++ functions.
@@ -75,7 +76,7 @@ public final class CppBridge {
      */
     public static BindingReport inspect(Class<?> apiType) {
         CppModule module = validateApiType(apiType);
-        String libraryPath = NativeLibraryResolver.expectedPath(apiType, module).toString();
+        String libraryPath = NativeLibraryResolver.locate(apiType, module).toString();
         return NativeBindingInspector.inspect(apiType, module, libraryPath);
     }
 
@@ -93,8 +94,13 @@ public final class CppBridge {
     }
 
     private static <T> CppModule validateApiType(Class<T> apiType) {
+        Objects.requireNonNull(apiType, "apiType");
         if (!apiType.isInterface()) {
             throw new CppBridgeException("CppBridge can load only interfaces: " + apiType.getName());
+        }
+
+        if (apiType.isSealed()) {
+            throw new CppBridgeException("CppBridge requires a non-sealed interface: " + apiType.getName());
         }
 
         CppModule module = apiType.getAnnotation(CppModule.class);

@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class NativeArrayTest {
     @Test
@@ -108,6 +109,35 @@ class NativeArrayTest {
                 return null;
             });
             assertInstanceOf(WrongThreadException.class, copyFailure);
+        }
+    }
+
+    @Test
+    void failedCloseOnAnotherThreadDoesNotInvalidateOrLeakArrays() throws Exception {
+        try (NativeByteArray bytes = NativeByteArray.allocate(1);
+             NativeIntArray ints = NativeIntArray.allocate(1);
+             NativeLongArray longs = NativeLongArray.allocate(1);
+             NativeFloatArray floats = NativeFloatArray.allocate(1);
+             NativeDoubleArray doubles = NativeDoubleArray.allocate(1)) {
+            AutoCloseable[] arrays = {bytes, ints, longs, floats, doubles};
+            for (AutoCloseable array : arrays) {
+                assertInstanceOf(WrongThreadException.class, runOnOtherThread(() -> {
+                    array.close();
+                    return null;
+                }));
+            }
+            var segments = java.util.List.of(bytes.segment(), ints.segment(), longs.segment(),
+                    floats.segment(), doubles.segment());
+            bytes.set(0, (byte) 7);
+            ints.set(0, 7);
+            longs.set(0, 7);
+            floats.set(0, 7);
+            doubles.set(0, 7);
+            for (AutoCloseable array : arrays) {
+                array.close();
+                array.close();
+            }
+            segments.forEach(segment -> assertFalse(segment.scope().isAlive()));
         }
     }
 

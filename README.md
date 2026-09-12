@@ -1,98 +1,27 @@
 # CppBridgeJ
 
-CppBridgeJ is a small Java framework for calling C++ functions through the Java Foreign Function & Memory API.
+Call C++ functions from Java through the Foreign Function & Memory API. Declare a Java interface, export C-compatible functions, and let the Maven plugin compile and package the native library.
 
-It provides:
+CppBridgeJ works best for operations over whole buffers: image processing, numerical transforms, audio, and simulation steps. Small calls can cost more than the equivalent Java code.
 
-- annotations for mapping Java interfaces to exported C functions;
-- a Maven plugin that compiles `src/main/cpp/*.cpp` into a platform shared library;
-- heap-array and off-heap array mapping for primitive data;
-- runtime binding diagnostics;
-- build-time symbol validation;
-- thread-safe proxy dispatch for shared API instances;
-- JMH benchmarks for comparing Java and native implementations.
+## Build and run
 
-The project targets coarse-grained native kernels: image buffers, numeric transforms, audio buffers, matrix operations, and simulation steps. It is not intended for replacing small Java methods with native calls.
-
-## Requirements
-
-- JDK 22 or newer
-- Maven 3.9 or newer
-- C++ compiler:
-  - macOS: `clang++`
-  - Linux: `g++`
-  - Windows: MSVC `cl` and `dumpbin` from a Developer Command Prompt
-
-Check the active JDK:
+You need JDK 22 or newer and a C++ compiler: `g++` on Linux, `clang++` on macOS, or MSVC `cl` and `dumpbin` in a Windows Developer Command Prompt. Maven Wrapper is included.
 
 ```bash
-java -version
-mvn -v
-```
-
-On macOS, select JDK 22 if Maven uses another JDK:
-
-```bash
-/usr/libexec/java_home -V
-export JAVA_HOME=$(/usr/libexec/java_home -v 22)
-mvn -v
-```
-
-## Quick start
-
-From the repository root:
-
-```bash
-mvn clean install
-./scripts/show-build-reports.sh
+./mvnw clean install
 ./scripts/run-example.sh
 ```
 
-Run all tests:
+On Windows, use `mvnw.cmd`. An existing Maven 3.9+ installation also works.
 
-```bash
-./scripts/run-tests.sh
-```
+Version `1.0.0` is distributed through [GitHub Releases](https://github.com/alman790/cppbridgej/releases/tag/v1.0.0). Download a platform bundle to run the example without a compiler, or install the Maven bundle as described in the quickstart. Maven Central publication is pending.
 
-Equivalent Maven command:
+See [Quickstart](docs/QUICKSTART.md) for a complete application with its own `pom.xml`, C++ source, and Java entry point.
 
-```bash
-mvn clean verify
-```
+## Declare the native API
 
-Run benchmarks:
-
-```bash
-./scripts/run-array-benchmarks.sh
-./scripts/run-pipeline-benchmarks.sh
-./scripts/run-image-benchmarks.sh
-```
-
-Equivalent manual flow:
-
-```bash
-mvn -pl cppbridge-benchmark -am clean package
-cd cppbridge-benchmark
-java --enable-native-access=ALL-UNNAMED -jar target/benchmarks.jar ArrayBenchmarks
-```
-
-Shell scripts in this repository are optional helpers. The project can be built and tested with Maven commands only.
-
-Generate JavaDoc:
-
-```bash
-./scripts/generate-javadocs.sh
-```
-
-Equivalent Maven command:
-
-```bash
-mvn -pl cppbridge-core,cppbridge-maven-plugin javadoc:javadoc
-```
-
-## Minimal example
-
-C++ source in `src/main/cpp/fastmath.cpp`:
+`src/main/cpp/fastmath.cpp`:
 
 ```cpp
 #include <cstdint>
@@ -103,291 +32,123 @@ C++ source in `src/main/cpp/fastmath.cpp`:
 #define CPPBRIDGE_EXPORT extern "C"
 #endif
 
-CPPBRIDGE_EXPORT std::int32_t sum_int(std::int32_t a, std::int32_t b) {
-    return a + b;
-}
-
-CPPBRIDGE_EXPORT double average_double(double* values, std::int32_t length) {
-    if (length <= 0) {
-        return 0.0;
-    }
-
+CPPBRIDGE_EXPORT double average_double(const double* values, std::int32_t length) {
     double total = 0.0;
-    for (int i = 0; i < length; i++) {
+    for (std::int32_t i = 0; i < length; ++i) {
         total += values[i];
     }
-    return total / length;
+    return length == 0 ? 0.0 : total / length;
 }
 ```
 
-Java interface:
+Java:
 
 ```java
+import dev.cppbridge.ArrayDirection;
+import dev.cppbridge.annotations.CppArray;
+import dev.cppbridge.annotations.CppFunction;
+import dev.cppbridge.annotations.CppModule;
+
 @CppModule(libraryName = "fastmath")
 public interface FastMath {
-    @CppFunction("sum_int")
-    int sum(int a, int b);
-
     @CppFunction("average_double")
     double average(@CppArray(ArrayDirection.IN) double[] values);
 }
 ```
 
-Java usage:
-
 ```java
 FastMath math = CppBridge.load(FastMath.class);
-
-int sum = math.sum(10, 20);
-double average = math.average(new double[] {10.0, 20.0, 30.0});
+double result = math.average(new double[]{10.0, 20.0, 30.0});
 ```
 
-## Maven plugin
+The array becomes a native pointer followed by an `int32_t` element count. Exported function signatures must match this contract; symbol lookup cannot check C++ parameter types.
+
+## Add it to a Maven project
+
+Add the runtime dependency:
+
+```xml
+<dependency>
+    <groupId>dev.cppbridge</groupId>
+    <artifactId>cppbridge-core</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+Add the plugin under `build/plugins`. The library name must match `@CppModule`:
 
 ```xml
 <plugin>
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridge-maven-plugin</artifactId>
-    <version>${project.version}</version>
+    <version>1.0.0</version>
     <configuration>
         <libraryName>fastmath</libraryName>
-        <optimizationLevel>O3</optimizationLevel>
-        <cppStandard>c++20</cppStandard>
         <expectedSymbols>
-            <expectedSymbol>sum_int</expectedSymbol>
             <expectedSymbol>average_double</expectedSymbol>
         </expectedSymbols>
     </configuration>
     <executions>
         <execution>
-            <goals>
-                <goal>compile-cpp</goal>
-            </goals>
+            <goals><goal>compile-cpp</goal></goals>
         </execution>
     </executions>
 </plugin>
 ```
 
-The plugin writes native build diagnostics to:
+`mvn package` compiles `.cpp`, `.cc`, and `.cxx` files recursively under `src/main/cpp`. It writes the shared library to `target/native` and includes it in the JAR under `META-INF/cppbridge/<os>-<arch>/`.
 
-```text
-target/cppbridge/native-build-report.txt
-target/cppbridge/exported-symbols.txt
-target/cppbridge/missing-symbols.txt
-```
+Start Java with `--enable-native-access=ALL-UNNAMED`. The [Quickstart](docs/QUICKSTART.md) includes a Maven run configuration with this flag.
 
-If `expectedSymbols` contains a symbol that is not exported by the shared library, the build fails by default. The plugin inspects only defined exported symbols:
+## Library loading
 
-```text
-macOS:  nm -gU <library>
-Linux:  nm -D --defined-only -g <library>
-Windows: dumpbin /EXPORTS <library>
-```
+`CppBridge.load(Api.class)` looks for:
 
-Undefined or imported symbols are not accepted as exports. If the inspection tool itself fails, the build reports a symbol-inspection failure instead of reporting every expected symbol as missing.
+1. `@CppModule(libraryPath = "...")`, when set. A missing explicit path is an error.
+2. The library in `outputDirectory`, which defaults to `target/native`.
+3. A matching platform resource in the API's class loader, extracted to a private temporary directory.
 
-## Array mapping
+A packaged application can run from any working directory. JARs contain the platform built on that machine; build and distribute each supported OS/CPU combination separately. Native dependencies still need to be installed or otherwise made available to the OS loader.
 
-Primitive Java arrays are passed as pointer plus length:
+Use `CppBridge.load(Api.class, "/absolute/path/to/library")` for an explicit runtime override. `CppBridge.inspect(...)` uses the same locations and returns binding diagnostics without invoking API methods. Multiple matching classpath resources are reported as an error.
 
-```text
-double[] -> double*, int32_t length
-byte[]   -> int8_t* or uint8_t*, int32_t length
-```
+Set `<packageNative>false</packageNative>` to distribute shared libraries separately. Native libraries remain loaded for the JVM lifetime.
 
-A Java method:
+## Arrays and threading
 
-```java
-@CppFunction("average_double")
-double average(@CppArray(ArrayDirection.IN) double[] values);
-```
+| Java parameter | Native parameters | Copy behavior |
+| --- | --- | --- |
+| `@CppArray(IN) double[]` | `double*, int32_t` | Copy in |
+| `@CppArray(OUT) double[]` | `double*, int32_t` | Zero-initialize, then copy out |
+| `double[]` or `@CppArray(IN_OUT) double[]` | `double*, int32_t` | Copy in and out |
+| `NativeDoubleArray` | `double*, int32_t` | Pass existing native memory |
 
-expects this C++ function:
+The same rules apply to `byte`, `int`, `long`, and `float` arrays. Passing the same heap array to several parameters preserves one native pointer; their copy directions are combined. Null arrays and null boxed scalars are rejected before invocation.
 
-```cpp
-CPPBRIDGE_EXPORT double average_double(double* values, std::int32_t length);
-```
+For repeated operations over a buffer, use a managed array in try-with-resources. Each managed array belongs to its creating thread. A proxy can be shared across threads if the native functions and the caller's buffers support concurrent use.
 
-`@CppArray` controls copy direction:
+Default interface methods run in Java. Static methods and the standard `Object` methods are not native bindings. Native symbols and Java signatures are validated when the proxy is loaded.
 
-- `IN`: copy Java data to native memory before the call;
-- `OUT`: copy native memory back to Java after the call;
-- `IN_OUT`: copy both ways.
-
-Default direction is `IN_OUT`.
-
-## NativeArray API
-
-For repeated calls over the same large buffer, use managed off-heap arrays:
-
-```java
-try (NativeDoubleArray values = NativeDoubleArray.copyOf(heapValues)) {
-    math.heavyTransform(values);
-    math.multiplyEachNative(values, 2.0);
-    double[] result = values.toArray();
-}
-```
-
-Supported wrappers:
-
-- `NativeByteArray`
-- `NativeIntArray`
-- `NativeLongArray`
-- `NativeFloatArray`
-- `NativeDoubleArray`
-
-These wrappers avoid copying the same array into native memory on every call.
-
-Managed native arrays own confined FFM arenas. Create, read, write, and close a managed native array on the owning thread unless the implementation changes to shared arenas in a future release.
-
-## Runtime binding
-
-`CppBridge.load(...)` validates native bindings eagerly. Loading fails before the first invocation when an abstract interface method cannot resolve its native symbol or has an unsupported signature.
-
-Default interface methods stay Java methods:
-
-```java
-default int sumTwice(int a, int b) {
-    return sum(a, b) * 2;
-}
-```
-
-They are not included in binding reports, are not resolved as native symbols, and run through the Java default-method implementation.
-
-The generated proxy can be shared across threads after loading. Each call uses per-call temporary native memory for heap-array marshalling. Usual Java and native data-race rules still apply: do not mutate the same heap array or managed native array concurrently unless the native function and the Java caller coordinate access.
-
-## Binding report
-
-Runtime inspection is available before executing native calls:
-
-```java
-BindingReport report = CppBridge.inspect(FastMath.class);
-System.out.println(report.toText());
-```
-
-Example output:
-
-```text
-CppBridgeJ binding report
-API: dev.cppbridge.example.FastMath
-Mode: NATIVE
-Library exists: true
-Healthy: true
-
-- double average(double[])
-  -> double average_double(double*, int32_t length)
-  symbol: average_double
-  status: OK
-```
-
-## Benchmark notes
-
-The repository includes JMH benchmarks under `cppbridge-benchmark`. Current local measurements are recorded in `docs/BENCHMARK_RESULTS_MACBOOK_JDK22.md`.
-
-Representative results from macOS with JDK 22.0.2:
-
-```text
-heavyTransform, 1_000_000 double values
-Java loop:             9.327 ms/op
-C++ NativeArray FFM:   5.059 ms/op
-```
-
-```text
-image fused pipeline, 3_000_000 bytes
-Java fused pipeline:        1.485 ms/op
-C++ NativeByteArray FFM:    0.450 ms/op
-```
-
-These numbers describe one machine and one benchmark configuration. Re-run JMH for the target environment before using the data for engineering decisions.
-
-## Scope and limitations
-
-Implemented:
-
-- native shared-library backend;
-- Java FFM invocation;
-- Java dynamic proxy binding;
-- primitive scalar types: `byte`, `int`, `long`, `float`, `double`, `void`;
-- primitive arrays and managed native arrays;
-- Maven-based C++ compilation;
-- exported-symbol validation.
-
-Not implemented yet:
-
-- structs and custom memory layouts;
-- strings;
-- callbacks;
-- native exceptions;
-- Gradle plugin;
-- WASM backend.
-
-See `docs/ABI_CONTRACT.md` for the precise Java-to-native ABI contract. In particular, Java `long` maps to a 64-bit value and should use `std::int64_t` at the native boundary rather than C/C++ `long`.
-
-## Documentation
-
-Generated JavaDoc is written to:
-
-```text
-cppbridge-core/target/reports/apidocs/index.html
-cppbridge-maven-plugin/target/reports/apidocs/index.html
-```
-
-Project documentation:
-
-- `docs/QUICKSTART.md`
-- `docs/USER_GUIDE.md`
-- `docs/API_REFERENCE.md`
-- `docs/ABI_CONTRACT.md`
-- `docs/ARCHITECTURE.md`
-- `docs/BUILD_TIME_VALIDATION.md`
-- `docs/BINDING_REPORT.md`
-- `docs/PUBLISHING.md`
-- `docs/BENCHMARK_RESULTS_MACBOOK_JDK22.md`
-- `docs/KNOWN_LIMITATIONS.md`
-- `docs/SECURITY_MODEL.md`
-- `docs/ROADMAP.md`
-
-## Troubleshooting
-
-### Maven tries to download `dev.cppbridge` artifacts
-
-Run from the repository root first:
+## Development
 
 ```bash
-mvn clean install
-./scripts/run-example.sh
-```
-
-This installs the local reactor modules into the local Maven repository before running module-specific commands.
-
-### FFM native-access warning
-
-Use:
-
-```bash
---enable-native-access=ALL-UNNAMED
-```
-
-The scripts already set this flag where it is needed.
-
-## JavaDoc
-
-Generate JavaDoc:
-
-```bash
+./mvnw -Pcoverage clean verify
 ./scripts/generate-javadocs.sh
 ```
 
-Equivalent Maven commands:
+Tests include real C++ compilation, array marshalling, concurrent calls, failure cases, and a separate JVM loading a packaged consumer JAR. CI runs on Linux, macOS, and Windows.
 
-```bash
-mvn -pl cppbridge-core -DskipTests org.apache.maven.plugins:maven-javadoc-plugin:3.10.1:javadoc
-mvn -pl cppbridge-maven-plugin -DskipTests org.apache.maven.plugins:maven-javadoc-plugin:3.10.1:javadoc
-```
+For performance work, use the [JMH benchmarks](docs/PERFORMANCE_NOTES.md). Previous measurements are in [Benchmark results](docs/BENCHMARK_RESULTS_MACBOOK_JDK22.md); remeasure for your hardware and workload.
 
-The script verifies that these files exist:
+## Documentation
 
-```text
-cppbridge-core/target/reports/apidocs/index.html
-cppbridge-maven-plugin/target/reports/apidocs/index.html
-```
+- [Quickstart](docs/QUICKSTART.md)
+- [User guide](docs/USER_GUIDE.md)
+- [ABI contract](docs/ABI_CONTRACT.md)
+- [Build configuration and symbol validation](docs/BUILD_TIME_VALIDATION.md)
+- [Binding diagnostics](docs/BINDING_REPORT.md)
+- [API reference](docs/API_REFERENCE.md)
+- [Limitations](docs/KNOWN_LIMITATIONS.md)
+- [Publishing](docs/PUBLISHING.md)
+
+The supported boundary consists of primitive scalars, primitive arrays, and managed native arrays. Strings, structs, callbacks, C++ classes, exception transport, and WASM are not implemented.

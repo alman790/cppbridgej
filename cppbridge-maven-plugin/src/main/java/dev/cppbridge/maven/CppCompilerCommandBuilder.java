@@ -11,6 +11,25 @@ final class CppCompilerCommandBuilder {
     }
 
     static List<String> build(
+            Platform platform, String compiler, String optimizationLevel, String cppStandard,
+            List<String> extraCompilerArgs, List<Path> cppFiles, Path outputLibrary,
+            List<Path> includeDirectories, List<String> extraLinkerArgs
+    ) throws MojoExecutionException {
+        List<String> command = build(platform, compiler, optimizationLevel, cppStandard,
+                extraCompilerArgs, cppFiles, outputLibrary);
+        for (Path directory : includeDirectories) {
+            command.add((platform == Platform.WINDOWS ? "/I" : "-I") + directory.toAbsolutePath().normalize());
+        }
+        if (extraLinkerArgs != null && !extraLinkerArgs.isEmpty()) {
+            if (platform == Platform.WINDOWS) {
+                command.add("/link");
+            }
+            addExtraCompilerArgs(command, extraLinkerArgs);
+        }
+        return command;
+    }
+
+    static List<String> build(
             Platform platform,
             String compiler,
             String optimizationLevel,

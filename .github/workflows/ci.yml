@@ -10,6 +10,23 @@ permissions:
   contents: read
 
 jobs:
+  current-jdk:
+    name: JDK 26 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up JDK 26
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "26"
+          cache: maven
+      - name: Install compiler
+        run: sudo apt-get update && sudo apt-get install -y g++
+      - name: Verify
+        run: ./mvnw -B -Dcppbridge.requireNativeCompiler=true clean verify
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -34,7 +51,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y g++
 
       - name: Verify
-        run: mvn -B -Pcoverage clean verify
+        run: ./mvnw -B -Pcoverage clean verify
+
+      - name: Test platform distribution
+        run: python3 scripts/package-release.py platform
 
       - name: Upload coverage reports
         if: always()
@@ -83,11 +103,11 @@ jobs:
             throw "dumpbin.exe is not available on PATH"
           }
 
-      - name: Verify Java modules with native compiler required
-        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
+      - name: Verify full Windows reactor
+        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" clean verify
 
-      - name: Build and test native example
-        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
+      - name: Test platform distribution
+        run: python scripts/package-release.py platform
 
       - name: Show native build reports
         shell: bash

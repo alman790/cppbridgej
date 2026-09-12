@@ -1,10 +1,15 @@
 # Roadmap
 
-## 1.0.0
+## Delivered in 1.0.0
 
-- Stabilize public API names.
-- Add more example modules.
-- Prepare Maven Central metadata.
+- Stable primitive scalar and array API with diagnostics and managed native arrays.
+- Native library packaging and platform-aware loading from JARs.
+- Maven compiler configuration, timeouts, and packaged consumer verification.
+- Runnable platform distributions and a Maven repository bundle.
+
+## Distribution follow-up
+
+- Complete Maven Central namespace access, credentials, signing, and publication.
 
 ## 1.x
 

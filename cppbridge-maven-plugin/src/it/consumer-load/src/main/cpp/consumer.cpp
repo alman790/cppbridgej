@@ -5,9 +5,10 @@
 #endif
 
 #include <cstdint>
+#include "consumer_constants.hpp"
 
 CPPBRIDGE_EXPORT std::int32_t answer_value() {
-    return 123;
+    return consumer_answer;
 }
 
 CPPBRIDGE_EXPORT void add_each(std::int32_t* values, std::int32_t length, std::int32_t delta) {

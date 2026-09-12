@@ -126,6 +126,57 @@ public class NativeInvocationIntegrationTest {
         assertNotEquals(api, new Object());
     }
 
+    @Test
+    void repeatedHeapArrayArgumentsShareNativeMemory() throws Exception {
+        requireNativeCompiler();
+        AliasApi api = CppBridge.load(AliasApi.class, compileFixture().toString());
+        int[] values = {3, 4};
+
+        assertEquals(1, api.transform(values, values));
+        assertArrayEquals(new int[] {7, 4}, values);
+
+        values[0] = 3;
+        assertEquals(1, api.outputFirst(values, values));
+        assertArrayEquals(new int[] {7, 4}, values);
+
+        values[0] = 3;
+        assertEquals(1, api.inputOnly(values, values));
+        assertArrayEquals(new int[] {3, 4}, values);
+
+        int[] distinct = {3, 4};
+        assertEquals(0, api.transform(values, distinct));
+        assertArrayEquals(new int[] {3, 4}, values);
+        assertArrayEquals(new int[] {7, 0}, distinct);
+    }
+
+    @Test
+    void redeclaredObjectMethodsDoNotRequireNativeSymbols() throws Exception {
+        requireNativeCompiler();
+        ObjectMethodsApi api = CppBridge.load(ObjectMethodsApi.class, compileFixture().toString());
+        assertEquals(5, api.sum(2, 3));
+        assertEquals(api, api);
+        assertNotEquals(api, new Object());
+        assertEquals(System.identityHashCode(api), api.hashCode());
+        assertTrue(api.toString().contains(ObjectMethodsApi.class.getName()));
+        assertEquals(1, CppBridge.inspect(ObjectMethodsApi.class, compileFixture().toString()).entries().size());
+    }
+
+    @Test
+    void packagePrivateInterfacesCanUseDefaultMethods() throws Exception {
+        requireNativeCompiler();
+        PackageDefaultApi api = CppBridge.load(PackageDefaultApi.class, compileFixture().toString());
+        assertEquals(12, api.sumTwice(2, 4));
+    }
+
+    @Test
+    void boxedScalarsRejectNullBeforeCallingNativeCode() throws Exception {
+        requireNativeCompiler();
+        BoxedApi api = CppBridge.load(BoxedApi.class, compileFixture().toString());
+        assertEquals(7, api.sum(3, 4));
+        CppBridgeException error = assertThrows(CppBridgeException.class, () -> api.sum(null, 4));
+        assertTrue(error.getMessage().contains("Scalar argument cannot be null"));
+    }
+
     private static void requireNativeCompiler() {
         boolean available = NativeTestPlatform.isCompilerAvailable();
         if (Boolean.getBoolean("cppbridge.requireNativeCompiler") && !available) {
@@ -160,6 +211,11 @@ public class NativeInvocationIntegrationTest {
                 }
                 CPPBRIDGE_EXPORT void multiply_doubles(double* values, std::int32_t length, double factor) {
                     for (std::int32_t i = 0; i < length; i++) values[i] *= factor;
+                }
+                CPPBRIDGE_EXPORT std::int32_t alias_transform(std::int32_t* input, std::int32_t input_length,
+                        std::int32_t* output, std::int32_t output_length) {
+                    if (input_length > 0 && output_length > 0) output[0] = input[0] + 4;
+                    return input == output ? 1 : 0;
                 }
                 """, StandardCharsets.UTF_8);
 
@@ -221,6 +277,44 @@ public class NativeInvocationIntegrationTest {
     interface MissingSymbolApi {
         @CppFunction("missing_symbol")
         int missing();
+    }
+
+    @CppModule(libraryName = "fixture")
+    interface AliasApi {
+        @CppFunction("alias_transform")
+        int transform(@CppArray(ArrayDirection.IN) int[] input, @CppArray(ArrayDirection.OUT) int[] output);
+
+        @CppFunction("alias_transform")
+        int outputFirst(@CppArray(ArrayDirection.OUT) int[] output, @CppArray(ArrayDirection.IN) int[] input);
+
+        @CppFunction("alias_transform")
+        int inputOnly(@CppArray(ArrayDirection.IN) int[] input, @CppArray(ArrayDirection.IN) int[] output);
+    }
+
+    @CppModule(libraryName = "fixture")
+    interface ObjectMethodsApi {
+        @CppFunction("sum_int")
+        int sum(int a, int b);
+
+        boolean equals(Object other);
+        int hashCode();
+        String toString();
+    }
+
+    @CppModule
+    interface PackageDefaultApi {
+        @CppFunction("sum_int")
+        int sum(int a, int b);
+
+        default int sumTwice(int a, int b) {
+            return sum(a, b) * 2;
+        }
+    }
+
+    @CppModule
+    interface BoxedApi {
+        @CppFunction("sum_int")
+        Integer sum(Integer a, Integer b);
     }
 
     @CppModule(libraryName = "fixture")

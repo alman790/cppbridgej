@@ -57,6 +57,27 @@ class BindingReportTest {
         assertTrue(exception.getMessage().contains("Missing @CppModule"));
     }
 
+    @Test
+    void inspectionAndLoadingRejectTheSameInvalidSignatures() {
+        for (Class<?> api : java.util.List.of(VoidParameterApi.class, MisplacedArrayAnnotationApi.class)) {
+            BindingReport report = CppBridge.inspect(api, "target/native/no-such-library.so");
+            assertEquals(BindingStatus.UNSUPPORTED_SIGNATURE, report.entries().getFirst().status());
+            CppBridgeException failure = org.junit.jupiter.api.Assertions.assertThrows(CppBridgeException.class,
+                    () -> CppBridge.load(api, "target/native/no-such-library.so"));
+            assertTrue(failure.getMessage().contains("Invalid native signature"));
+        }
+    }
+
+    @CppModule
+    interface VoidParameterApi {
+        int invalid(Void value);
+    }
+
+    @CppModule
+    interface MisplacedArrayAnnotationApi {
+        int invalid(@dev.cppbridge.annotations.CppArray int value);
+    }
+
     interface NotAModule {
         int sum(int a, int b);
     }

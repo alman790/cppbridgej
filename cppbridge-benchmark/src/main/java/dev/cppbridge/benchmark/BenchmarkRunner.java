@@ -7,28 +7,21 @@ import org.openjdk.jmh.runner.options.CommandLineOptions;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Runnable JMH entry point.
- *
- * <p>Unlike the earlier prototype, this runner delegates command-line arguments to JMH itself.
- * That means these commands now work:</p>
- *
- * <pre>
- * java -jar target/benchmarks.jar
- * java -jar target/benchmarks.jar ImageBenchmarks
- * java -jar target/benchmarks.jar PipelineBenchmarks -f 1 -wi 3 -i 5
- * </pre>
- */
-/**
- * Command-line entry point for running the benchmark jar.
- */
+/** Command-line entry point for running the benchmark JAR. */
 public final class BenchmarkRunner {
     private BenchmarkRunner() {
     }
 
-    public static void main(String[] args) throws RunnerException, CommandLineOptionException {
+    public static void main(String[] args) throws RunnerException, CommandLineOptionException, java.io.IOException {
+        CommandLineOptions commandLine = new CommandLineOptions(args);
+        if (commandLine.shouldHelp() || commandLine.shouldList()
+                || commandLine.shouldListWithParams() || commandLine.shouldListProfilers()
+                || commandLine.shouldListResultFormats()) {
+            org.openjdk.jmh.Main.main(args);
+            return;
+        }
         Options options = new OptionsBuilder()
-                .parent(new CommandLineOptions(args))
+                .parent(commandLine)
                 .detectJvmArgs()
                 .jvmArgsAppend("--enable-native-access=ALL-UNNAMED")
                 .build();

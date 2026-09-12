@@ -6,6 +6,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PlatformTest {
     @Test
+    void packagedResourcePathsMatchTheRuntimeOnEveryPlatform() {
+        String original = System.getProperty("os.arch");
+        try {
+            for (String arch : new String[]{"amd64", "x86_64", "arm64", "aarch64", "i386", "riscv64"}) {
+                System.setProperty("os.arch", arch);
+                for (Platform platform : Platform.values()) {
+                    var runtime = dev.cppbridge.runtime.NativePlatform.valueOf(platform.name());
+                    assertEquals(runtime.resourceDirectory(), platform.resourceDirectory());
+                    assertEquals(runtime.libraryFileName("test-library"), platform.libraryFileName("test-library"));
+                }
+            }
+        } finally {
+            System.setProperty("os.arch", original);
+        }
+    }
+
+    @Test
     void detectMapsCommonOperatingSystems() {
         String original = System.getProperty("os.name");
         try {

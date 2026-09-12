@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,20 +41,44 @@ public final class CompileCppMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.directory}/cppbridge")
     private File reportDirectory;
 
+    /** Project directory used to resolve relative compiler and linker arguments. */
+    @Parameter(defaultValue = "${project.basedir}", readonly = true, required = true)
+    private File projectDirectory;
+
+    /** Java output directory receiving the packaged native resource. */
+    @Parameter(defaultValue = "${project.build.outputDirectory}", required = true)
+    private File classesDirectory;
+
+    /** Include the current platform library in the project's JAR. */
+    @Parameter(property = "cppbridge.packageNative", defaultValue = "true")
+    private boolean packageNative;
+
+    /** Header search directories. Paths are resolved relative to the project. */
+    @Parameter
+    private List<File> includeDirectories;
+
+    /** Linker arguments, placed after source files so static libraries resolve correctly. */
+    @Parameter
+    private List<String> extraLinkerArgs;
+
+    /** Maximum runtime for each compiler or symbol-inspection command. */
+    @Parameter(property = "cppbridge.commandTimeoutSeconds", defaultValue = "300")
+    private long commandTimeoutSeconds;
+
     /** Logical native library name without platform prefix or extension. */
     @Parameter(defaultValue = "${project.artifactId}")
     private String libraryName;
 
     /** Optional compiler executable. If empty, the platform default is used. */
-    @Parameter(defaultValue = "")
+    @Parameter(property = "cppbridge.compiler", defaultValue = "")
     private String compiler;
 
     /** Compiler optimization level, for example {@code O2} or {@code O3}. */
-    @Parameter(defaultValue = "O3")
+    @Parameter(property = "cppbridge.optimizationLevel", defaultValue = "O3")
     private String optimizationLevel;
 
     /** C++ language standard passed to the compiler. */
-    @Parameter(defaultValue = "c++20")
+    @Parameter(property = "cppbridge.cppStandard", defaultValue = "c++20")
     private String cppStandard;
 
     /** Extra compiler arguments, for example: -march=native, -ffast-math, /arch:AVX2. */
@@ -73,7 +98,7 @@ public final class CompileCppMojo extends AbstractMojo {
     private boolean generateBuildReport;
 
     /** Skip C++ compilation for this module. */
-    @Parameter(defaultValue = "false")
+    @Parameter(property = "cppbridge.skip", defaultValue = "false")
     private boolean skip;
 
     /**
@@ -125,13 +150,14 @@ public final class CompileCppMojo extends AbstractMojo {
         }
 
         NativeSymbolReport symbolReport = inspectExportedSymbols(platform, outputLibrary);
-        if (symbolReport.inspectionFailed() && expectedSymbols != null && !expectedSymbols.isEmpty()) {
-            throw new MojoExecutionException(symbolReport.message());
-        }
         List<String> missingSymbols = findMissingSymbols(platform, symbolReport.normalizedSymbols());
 
         if (generateBuildReport) {
             writeReports(platform, cppFiles, outputLibrary, command, compileResult, symbolReport, missingSymbols);
+        }
+
+        if (symbolReport.inspectionFailed() && expectedSymbols != null && !expectedSymbols.isEmpty()) {
+            throw new MojoExecutionException(symbolReport.message());
         }
 
         if (!missingSymbols.isEmpty()) {
@@ -143,6 +169,18 @@ public final class CompileCppMojo extends AbstractMojo {
             getLog().warn(message);
         } else if (expectedSymbols != null && !expectedSymbols.isEmpty()) {
             getLog().info("CppBridgeJ expected-symbol validation passed: " + expectedSymbols.size() + " symbol(s).");
+        }
+
+        if (packageNative) {
+            Path resource = classesDirectory.toPath().resolve(platform.resourceDirectory())
+                    .resolve(outputLibrary.getFileName());
+            try {
+                Files.createDirectories(resource.getParent());
+                Files.copy(outputLibrary, resource, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException exception) {
+                throw new MojoExecutionException("Cannot package native library: " + resource, exception);
+            }
+            getLog().info("Packaged native library: " + resource);
         }
     }
 
@@ -169,24 +207,17 @@ public final class CompileCppMojo extends AbstractMojo {
                 cppStandard,
                 extraCompilerArgs,
                 cppFiles,
-                outputLibrary
+                outputLibrary,
+                includeDirectories == null ? List.of() : includeDirectories.stream()
+                        .map(File::toPath)
+                        .map(path -> path.isAbsolute() ? path : projectDirectory.toPath().resolve(path))
+                        .toList(),
+                extraLinkerArgs
         );
     }
 
     private CommandResult runCommand(List<String> command) throws MojoExecutionException {
-        ProcessBuilder processBuilder = new ProcessBuilder(command);
-        processBuilder.redirectErrorStream(true);
-        try {
-            Process process = processBuilder.start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            return new CommandResult(exitCode, output);
-        } catch (IOException e) {
-            throw new MojoExecutionException("Cannot start command: " + String.join(" ", command), e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new MojoExecutionException("Command interrupted: " + String.join(" ", command), e);
-        }
+        return CommandRunner.run(command, projectDirectory.toPath(), commandTimeoutSeconds);
     }
 
     private NativeSymbolReport inspectExportedSymbols(Platform platform, Path outputLibrary) {

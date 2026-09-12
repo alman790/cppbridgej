@@ -89,4 +89,20 @@ class CppCompilerCommandBuilderTest {
                 Path.of("liba.so")
         ));
     }
+
+    @Test
+    void placesLibrariesAfterSourcesAndKeepsHeaderPathsAsSingleArguments() throws Exception {
+        Path source = Path.of("source files", "kernel.cpp");
+        Path headers = Path.of("include files");
+        List<String> unix = CppCompilerCommandBuilder.build(Platform.LINUX, "g++", "O2", "c++20",
+                List.of(), List.of(source), Path.of("libkernel.so"), List.of(headers), List.of("-lm"));
+        assertTrue(unix.contains("-I" + headers.toAbsolutePath()));
+        assertTrue(unix.indexOf("-lm") > unix.indexOf(source.toAbsolutePath().toString()));
+
+        List<String> windows = CppCompilerCommandBuilder.build(Platform.WINDOWS, "cl", "O2", "c++20",
+                List.of(), List.of(source), Path.of("kernel.dll"), List.of(headers), List.of("user32.lib"));
+        assertTrue(windows.contains("/I" + headers.toAbsolutePath()));
+        assertTrue(windows.indexOf("/link") > windows.indexOf(source.toAbsolutePath().toString()));
+        assertEquals("user32.lib", windows.getLast());
+    }
 }
