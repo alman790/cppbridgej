@@ -1,10 +1,22 @@
 # Quickstart
 
-This example creates a separate Maven application that calls C++ from Java. It uses the current development version, `1.0.0-rc4-SNAPSHOT`.
+This example creates a separate Maven application that calls C++ from Java. It uses version `1.0.0`.
 
-## Install the development artifacts
+## Install the artifacts
 
-With JDK 22+ selected and a C++ compiler on `PATH`, run from the CppBridgeJ checkout:
+Download `cppbridgej-1.0.0-maven.zip` from [the release](https://github.com/alman790/cppbridgej/releases/tag/v1.0.0). It contains the runtime, plugin, parent POM, sources, and JavaDoc in Maven repository layout. Extract it into your local Maven repository (or your configured alternative):
+
+```bash
+unzip cppbridgej-1.0.0-maven.zip -d "$HOME/.m2/repository"
+```
+
+PowerShell:
+
+```powershell
+Expand-Archive cppbridgej-1.0.0-maven.zip -DestinationPath "$env:USERPROFILE/.m2/repository"
+```
+
+Maven Central publication is pending. Alternatively, build and install from source. With JDK 22+ selected and a C++ compiler on `PATH`, run from the CppBridgeJ checkout:
 
 ```bash
 ./mvnw clean install
@@ -29,7 +41,7 @@ Create `pom.xml` in a new directory:
     <properties>
         <maven.compiler.release>22</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <cppbridge.version>1.0.0-rc4-SNAPSHOT</cppbridge.version>
+        <cppbridge.version>1.0.0</cppbridge.version>
     </properties>
     <dependencies>
         <dependency>

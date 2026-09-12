@@ -15,7 +15,7 @@ You need JDK 22 or newer and a C++ compiler: `g++` on Linux, `clang++` on macOS,
 
 On Windows, use `mvnw.cmd`. An existing Maven 3.9+ installation also works.
 
-The development version is `1.0.0-rc4-SNAPSHOT`. Install it from this checkout before using it in another project; this version is not a published release.
+Version `1.0.0` is distributed through [GitHub Releases](https://github.com/alman790/cppbridgej/releases/tag/v1.0.0). Download a platform bundle to run the example without a compiler, or install the Maven bundle as described in the quickstart. Maven Central publication is pending.
 
 See [Quickstart](docs/QUICKSTART.md) for a complete application with its own `pom.xml`, C++ source, and Java entry point.
 
@@ -71,7 +71,7 @@ Add the runtime dependency:
 <dependency>
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridge-core</artifactId>
-    <version>1.0.0-rc4-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -81,7 +81,7 @@ Add the plugin under `build/plugins`. The library name must match `@CppModule`:
 <plugin>
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridge-maven-plugin</artifactId>
-    <version>1.0.0-rc4-SNAPSHOT</version>
+    <version>1.0.0</version>
     <configuration>
         <libraryName>fastmath</libraryName>
         <expectedSymbols>

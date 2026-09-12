@@ -25,6 +25,7 @@ Main attributes:
 
 - `libraryName`: platform-neutral library name;
 - `libraryPath`: optional explicit path;
+- `outputDirectory`: development library directory, defaulting to `target/native`;
 - `mode`: currently `NATIVE`.
 
 ## `@CppFunction`
@@ -112,7 +113,7 @@ Entry status values:
 
 ```text
 OK
-MISSING_LIBRARY
+LIBRARY_NOT_FOUND
 MISSING_SYMBOL
 UNSUPPORTED_SIGNATURE
 INSPECTION_FAILED

@@ -1,6 +1,6 @@
 # Release Readiness
 
-## Must pass before v1.0.0
+## GitHub release gates
 
 - Public API review confirms the stable 1.0 surface: annotations, `CppBridge`, diagnostics records/enums, managed native arrays, and the Maven `compile-cpp` goal.
 - `docs/ABI_CONTRACT.md` matches runtime descriptor generation and examples.
@@ -11,7 +11,9 @@
 - JavaDoc JARs and sources JARs are produced for `cppbridge-core` and `cppbridge-maven-plugin`.
 - GitHub Actions release verification passes on Ubuntu, macOS, and Windows.
 - Windows verification proves MSVC `cl`, `dumpbin /EXPORTS`, DLL compilation, symbol validation, Java FFM loading, and native invocation.
-- Maven Central credentials and signing keys are configured outside the repository.
+## Maven Central gate (pending)
+
+The original release checklist also requires Maven Central credentials and signing keys configured outside the repository. That gate is not satisfied by the GitHub release: Central publication remains pending, and the quickstart explicitly installs the GitHub Maven bundle. Before announcing Central availability, configure namespace access and signing, deploy, and verify a fresh consumer against Central.
 
 ## Post-1.0 roadmap
 

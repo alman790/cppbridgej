@@ -1,12 +1,10 @@
 # Versioning
 
-Current development version:
+Current release version:
 
 ```text
-1.0.0-rc4-SNAPSHOT
+1.0.0
 ```
-
-Release candidates may still change the API before `1.0.0`.
 
 CppBridgeJ follows semantic versioning after `1.0.0`:
 
@@ -16,7 +14,7 @@ CppBridgeJ follows semantic versioning after `1.0.0`:
 
 Native ABI compatibility also depends on user-provided C-compatible declarations. A Java-compatible CppBridgeJ upgrade cannot make a mismatched native function signature safe.
 
-Expected stable API surface:
+Stable API surface:
 
 - `CppBridge.load(...)`
 - `CppBridge.inspect(...)`

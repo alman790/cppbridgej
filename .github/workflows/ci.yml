@@ -53,6 +53,9 @@ jobs:
       - name: Verify
         run: ./mvnw -B -Pcoverage clean verify
 
+      - name: Test platform distribution
+        run: python3 scripts/package-release.py platform
+
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -100,11 +103,11 @@ jobs:
             throw "dumpbin.exe is not available on PATH"
           }
 
-      - name: Verify Java modules with native compiler required
-        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
+      - name: Verify full Windows reactor
+        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" clean verify
 
-      - name: Build and test native example
-        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
+      - name: Test platform distribution
+        run: python scripts/package-release.py platform
 
       - name: Show native build reports
         shell: bash

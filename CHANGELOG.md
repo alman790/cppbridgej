@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 1.0.0-rc4-SNAPSHOT
+## 1.0.0 - 2026-09-12
 
 - Package native libraries in JARs and resolve them through the API class loader when the development binary is absent.
 - Preserve native pointer identity for repeated heap-array arguments and combine their copy directions.

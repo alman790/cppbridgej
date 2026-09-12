@@ -2,112 +2,143 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths: [.github/release.json]
+    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      notes: ${{ steps.metadata.outputs.notes }}
+      publish: ${{ steps.metadata.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate release metadata
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import importlib.util, json, os, urllib.request, urllib.error
+          spec = importlib.util.spec_from_file_location('packaging', 'scripts/package-release.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          metadata = module.release_metadata()
+          tag = 'v' + metadata['version']
+          if os.environ['GITHUB_REF_TYPE'] == 'tag' and os.environ['GITHUB_REF_NAME'] != tag:
+              raise ValueError('Tag and Maven version differ')
+          if os.environ['GITHUB_REF_TYPE'] != 'tag' and os.environ['GITHUB_REF_NAME'] != 'main':
+              raise ValueError('Branch releases must run from main')
+          url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/releases/tags/{tag}"
+          request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+          publish = True
+          try:
+              with urllib.request.urlopen(request) as response:
+                  release = json.load(response)
+              if not release['draft']:
+                  publish = False
+              elif release['target_commitish'] != os.environ['GITHUB_SHA']:
+                  raise ValueError('Existing draft belongs to another commit')
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"version={metadata['version']}\nnotes={metadata['notes']}\npublish={str(publish).lower()}\n")
+          PY
+
   verify:
     name: Verify release (${{ matrix.os }})
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up JDK 22
-        uses: actions/setup-java@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "22"
           cache: maven
-
       - name: Install Linux compiler
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y g++
-
-      - name: Activate MSVC developer environment
+      - name: Activate MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Verify Windows native toolchain
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $cl = Get-Command cl.exe -ErrorAction Stop
-          $dumpbin = Get-Command dumpbin.exe -ErrorAction Stop
-
-          Write-Host "cl: $($cl.Source)"
-          Write-Host "dumpbin: $($dumpbin.Source)"
-
-          where.exe cl
-          if ($LASTEXITCODE -ne 0) {
-            throw "cl.exe is not available on PATH"
-          }
-
-          where.exe dumpbin
-          if ($LASTEXITCODE -ne 0) {
-            throw "dumpbin.exe is not available on PATH"
-          }
-
-      - name: Verify Unix release build
+      - name: Verify Unix build
         if: runner.os != 'Windows'
-        run: ./mvnw -B -Pcoverage clean verify
-
-      - name: Verify Windows Java modules with native compiler required
+        run: ./mvnw -B -Pcoverage -Dcppbridge.requireNativeCompiler=true clean verify
+      - name: Verify Windows build
         if: runner.os == 'Windows'
-        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
+        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" clean verify
+      - name: Package and test platform distribution
+        run: python scripts/package-release.py platform
+      - uses: actions/upload-artifact@v7
+        with:
+          name: platform-${{ matrix.os }}
+          path: target/platform-release/*.zip
+          if-no-files-found: error
 
-      - name: Verify Windows native example
-        if: runner.os == 'Windows'
-        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
-
-      - name: Show Windows native build reports
-        if: runner.os == 'Windows'
-        shell: bash
-        run: ./scripts/show-build-reports.sh
-
-  build-release:
-    name: Build release artifacts
+  publish:
+    name: Publish verified artifacts
     runs-on: ubuntu-latest
-    needs: verify
+    needs: [prepare, verify]
     permissions:
       contents: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up JDK 22
-        uses: actions/setup-java@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "22"
           cache: maven
-
       - name: Install compiler
         run: sudo apt-get update && sudo apt-get install -y g++
-
-      - name: Verify release artifacts
-        run: ./mvnw -B -Pcoverage clean verify
-
+      - name: Build Maven artifacts
+        run: ./mvnw -B -Pcoverage -Dcppbridge.requireNativeCompiler=true clean verify
       - name: Package source archive
         run: ./scripts/package-source.sh
-
-      - name: Create GitHub release
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: platform-*
+          merge-multiple: true
+          path: target/release
+      - name: Assemble release and checksums
+        run: python3 scripts/package-release.py assemble
+      - name: Upload draft release
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
-          files: |
-            target/*.zip
-            cppbridge-core/target/*.jar
-            cppbridge-maven-plugin/target/*.jar
-            cppbridge-example/target/*.jar
-            cppbridge-benchmark/target/benchmarks.jar
+          tag_name: v${{ needs.prepare.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: CppBridgeJ ${{ needs.prepare.outputs.version }}
+          body_path: ${{ needs.prepare.outputs.notes }}
+          draft: true
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+          fail_on_unmatched_files: true
+          files: target/release/*
+      - name: Verify uploaded assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v${{ needs.prepare.outputs.version }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir target/release-download
+          cd target/release-download
+          sha256sum -c SHA256SUMS
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi

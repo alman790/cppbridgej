@@ -6,7 +6,7 @@
 
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridgej-parent</artifactId>
-    <version>1.0.0-rc4-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>CppBridgeJ Parent</name>
