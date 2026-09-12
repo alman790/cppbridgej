@@ -6,8 +6,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$ROOT_DIR"
 
-MVN="${MVN:-mvn}"
-JAVADOC_PLUGIN="org.apache.maven.plugins:maven-javadoc-plugin:3.10.1:javadoc"
+MVN="${MVN:-$ROOT_DIR/mvnw}"
+JAVADOC_PLUGIN="javadoc:javadoc"
 
 CORE_INDEX=""
 PLUGIN_INDEX=""

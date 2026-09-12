@@ -56,4 +56,20 @@ enum Platform {
             case WINDOWS -> "cl";
         };
     }
+
+    /**
+     * Returns the classpath directory used for libraries for the current CPU.
+     *
+     * @return resource directory, such as {@code META-INF/cppbridge/linux-x86_64}
+     */
+    String resourceDirectory() {
+        String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
+        String normalized = switch (arch) {
+            case "amd64", "x64", "x86_64" -> "x86_64";
+            case "arm64", "aarch64" -> "aarch64";
+            case "x86", "i386", "i486", "i586", "i686" -> "x86";
+            default -> arch.replaceAll("[^a-z0-9_]", "_");
+        };
+        return "META-INF/cppbridge/" + name().toLowerCase(Locale.ROOT) + "-" + normalized;
+    }
 }

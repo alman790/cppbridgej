@@ -6,7 +6,7 @@
 
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridgej-parent</artifactId>
-    <version>1.0.0-rc3</version>
+    <version>1.0.0-rc4-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>CppBridgeJ Parent</name>
@@ -68,6 +68,31 @@
     </dependencyManagement>
 
     <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.6.2</version>
+                <executions>
+                    <execution>
+                        <id>check-toolchain</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[22,)</version>
+                                    <message>CppBridgeJ requires JDK 22 or newer. Set JAVA_HOME to a supported JDK.</message>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.9,)</version>
+                                    <message>Use ./mvnw (mvnw.cmd on Windows) or Maven 3.9 or newer.</message>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>

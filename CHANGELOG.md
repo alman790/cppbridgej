@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — 1.0.0-rc4-SNAPSHOT
+
+- Package native libraries in JARs and resolve them through the API class loader when the development binary is absent.
+- Preserve native pointer identity for repeated heap-array arguments and combine their copy directions.
+- Keep managed arrays usable and closable after a failed close from another thread.
+- Share signature validation between loading and inspection; handle redeclared Object methods and package-private default methods correctly.
+- Release inspection lookups after producing a report and add context to library-loading failures.
+- Add include directories, linker arguments, command timeouts, and command-line properties to the Maven plugin.
+- Include Maven Wrapper, validate the build JDK, and provide a complete standalone quickstart.
+- Test a packaged consumer in a separate JVM launched outside the build directory.
+
 ## 1.0.0-rc3 - 2026-09-02
 
 - Documented the precise Java-to-native ABI contract, including portable handling for Java `long`.

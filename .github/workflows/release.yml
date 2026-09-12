@@ -58,15 +58,15 @@ jobs:
 
       - name: Verify Unix release build
         if: runner.os != 'Windows'
-        run: mvn -B -Pcoverage clean verify
+        run: ./mvnw -B -Pcoverage clean verify
 
       - name: Verify Windows Java modules with native compiler required
         if: runner.os == 'Windows'
-        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
+        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-core,cppbridge-maven-plugin clean verify
 
       - name: Verify Windows native example
         if: runner.os == 'Windows'
-        run: mvn -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
+        run: .\mvnw.cmd -B "-Dcppbridge.requireNativeCompiler=true" -pl cppbridge-example -am clean verify
 
       - name: Show Windows native build reports
         if: runner.os == 'Windows'
@@ -95,7 +95,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y g++
 
       - name: Verify release artifacts
-        run: mvn -B -Pcoverage clean verify
+        run: ./mvnw -B -Pcoverage clean verify
 
       - name: Package source archive
         run: ./scripts/package-source.sh

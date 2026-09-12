@@ -33,7 +33,7 @@ java --enable-native-access=ALL-UNNAMED -jar target/benchmarks.jar 'ArrayBenchma
 
 ## Versioning
 
-Update the root version and all module parent versions together. For the next stable release after `1.0.0-rc3`, use `1.0.0` unless a release issue records another candidate.
+The development version is `1.0.0-rc4-SNAPSHOT`. Before publishing, update the root version and all module parent versions together to a release version, such as `1.0.0-rc4` or `1.0.0`. Do not publish the development snapshot to Maven Central. The tagging example below assumes `1.0.0-rc4`.
 
 Update:
 
@@ -54,8 +54,8 @@ Check that the archive excludes `target/`, `.DS_Store`, and local IDE files.
 Tag only after CI is green on the release commit:
 
 ```bash
-git tag -a v1.0.0-rc3 -m "CppBridgeJ 1.0.0-rc3"
-git push origin v1.0.0-rc3
+git tag -a v1.0.0-rc4 -m "CppBridgeJ 1.0.0-rc4"
+git push origin v1.0.0-rc4
 ```
 
 ## Maven Publication

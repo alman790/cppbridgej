@@ -27,6 +27,12 @@ Linux   target/native/libfastmath.so
 Windows target/native/fastmath.dll
 ```
 
+When no explicit path is configured and the file is absent, the runtime searches the API's class loader for `META-INF/cppbridge/<os>-<arch>/<library>`. The Maven plugin includes this resource in the JAR by default. Architectures use canonical names such as `x86_64` and `aarch64`.
+
+Packaged libraries are extracted once per resource URL to a private temporary directory and scheduled for deletion at JVM shutdown. On platforms that lock loaded binaries, deletion may require later temporary-directory cleanup. Each JAR contains the platform it was built for; dependent shared libraries are not bundled automatically.
+
+`CppBridge.load(Api.class, path)` and `@CppModule(libraryPath = "...")` select a specific file and do not fall back to another library. `CppBridge.inspect(...)` uses the same resolution order. Conflicting resources with the same native name fail with an explanation instead of choosing one by classpath order.
+
 ## Function mapping
 
 ```java
@@ -42,7 +48,7 @@ CPPBRIDGE_EXPORT std::int32_t sum_int(std::int32_t a, std::int32_t b) {
 }
 ```
 
-Only abstract interface methods are native bindings. Default and static interface methods remain Java methods and are ignored by the runtime binding inspector and by `CppBridge.load(...)` native-symbol resolution.
+Only abstract interface methods other than `equals(Object)`, `hashCode()`, and `toString()` are native bindings. Default and static interface methods remain Java methods and are ignored by the runtime binding inspector and by `CppBridge.load(...)` native-symbol resolution.
 
 ## Scalars
 
@@ -77,7 +83,9 @@ Array direction:
 - `OUT`: native to Java;
 - `IN_OUT`: both directions.
 
-Default is `IN_OUT`.
+Default is `IN_OUT`. `OUT` buffers start zero-filled. If the same heap array is passed to multiple parameters, all of them receive the same native pointer. Their directions are combined: any input parameter enables copy-in, and any output parameter enables copy-back. Copies happen once per array per call.
+
+`@CppArray` is only valid on supported primitive heap arrays. Managed arrays always pass their existing memory directly. Null arrays and null boxed scalars are rejected before the native call.
 
 ## Managed native arrays
 
@@ -129,7 +137,7 @@ Use this when checking how Java methods map to native symbols.
 
 ## Threading
 
-`CppBridge.load(...)` returns a proxy that can be shared between threads after construction. Method handles are cached in a concurrent cache and heap-array marshalling uses per-call temporary memory.
+`CppBridge.load(...)` returns a proxy that can be shared between threads after construction. Method bindings are prepared once and stored in an immutable map and heap-array marshalling uses per-call temporary memory.
 
 Sharing Java arrays or managed native arrays between concurrent calls is still the caller's responsibility. Native functions must be reentrant for concurrent use, and mutable buffers need external synchronization when multiple threads access the same storage.
 

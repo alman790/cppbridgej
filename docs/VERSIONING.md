@@ -1,9 +1,9 @@
 # Versioning
 
-Current version:
+Current development version:
 
 ```text
-1.0.0-rc3
+1.0.0-rc4-SNAPSHOT
 ```
 
 Release candidates may still change the API before `1.0.0`.

@@ -18,8 +18,8 @@ cppbridge-maven-plugin/target/reports/apidocs/index.html
 Equivalent Maven commands:
 
 ```bash
-mvn -pl cppbridge-core -DskipTests org.apache.maven.plugins:maven-javadoc-plugin:3.10.1:javadoc
-mvn -pl cppbridge-maven-plugin -DskipTests org.apache.maven.plugins:maven-javadoc-plugin:3.10.1:javadoc
+mvn -pl cppbridge-core -DskipTests javadoc:javadoc
+mvn -pl cppbridge-maven-plugin -DskipTests javadoc:javadoc
 ```
 
 The generated JavaDoc is build output and should not be committed.

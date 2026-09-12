@@ -39,7 +39,16 @@ public final class NativeLongArray implements AutoCloseable {
      * @return allocated native array
      */
     public static NativeLongArray allocate(int length) {
-        return new NativeLongArray(Arena.ofConfined(), length);
+        if (length < 0) {
+            throw new IllegalArgumentException("length must be >= 0");
+        }
+        Arena arena = Arena.ofConfined();
+        try {
+            return new NativeLongArray(arena, length);
+        } catch (RuntimeException | Error failure) {
+            arena.close();
+            throw failure;
+        }
     }
 
     /**
@@ -160,8 +169,8 @@ public final class NativeLongArray implements AutoCloseable {
     @Override
     public void close() {
         if (!closed) {
-            closed = true;
             arena.close();
+            closed = true;
         }
     }
 }

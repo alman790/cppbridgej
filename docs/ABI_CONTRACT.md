@@ -31,6 +31,10 @@ Primitive heap arrays and managed native arrays are passed as pointer plus signe
 | `float[]`, `NativeFloatArray` | `float* values, std::int32_t length` |
 | `double[]`, `NativeDoubleArray` | `double* values, std::int32_t length` |
 
+Repeated references to the same heap array within a call preserve pointer identity. Copy directions are combined across those parameters. Native code must not declare aliased parameters with incompatible `restrict` assumptions.
+
+`@CppArray` is valid only on supported heap-array parameters. `Void` is accepted as a return type, but never as a parameter type. Boxed scalar parameters must be non-null.
+
 The Java side owns the `length` value. Native functions must respect it and must not read or write beyond the provided buffer.
 
 ## Validation Guarantees

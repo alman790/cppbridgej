@@ -7,7 +7,7 @@
     <parent>
         <groupId>dev.cppbridge</groupId>
         <artifactId>cppbridgej-parent</artifactId>
-        <version>1.0.0-rc3</version>
+        <version>1.0.0-rc4-SNAPSHOT</version>
     </parent>
 
     <artifactId>cppbridge-example</artifactId>
