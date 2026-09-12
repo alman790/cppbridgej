@@ -118,6 +118,8 @@ jobs:
           path: target/release
       - name: Assemble release and checksums
         run: python3 scripts/package-release.py assemble
+      - name: Verify Maven bundle with the documented consumer
+        run: python3 scripts/test-release-consumer.py
       - name: Upload draft release
         uses: softprops/action-gh-release@v3
         with:
