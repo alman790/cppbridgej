@@ -3,7 +3,7 @@
 Current release version:
 
 ```text
-1.0.0
+1.1.0
 ```
 
 CppBridgeJ follows semantic versioning after `1.0.0`:

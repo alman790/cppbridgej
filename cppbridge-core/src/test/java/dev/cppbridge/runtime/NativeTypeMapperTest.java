@@ -1,19 +1,20 @@
 package dev.cppbridge.runtime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.cppbridge.CppBridgeException;
 import dev.cppbridge.memory.NativeByteArray;
 import dev.cppbridge.memory.NativeDoubleArray;
 import dev.cppbridge.memory.NativeFloatArray;
 import dev.cppbridge.memory.NativeIntArray;
 import dev.cppbridge.memory.NativeLongArray;
+
 import org.junit.jupiter.api.Test;
 
 import java.lang.foreign.ValueLayout;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NativeTypeMapperTest {
     @Test
@@ -23,7 +24,7 @@ class NativeTypeMapperTest {
         assertTrue(NativeTypeMapper.isPrimitiveArray(long[].class));
         assertTrue(NativeTypeMapper.isPrimitiveArray(float[].class));
         assertTrue(NativeTypeMapper.isPrimitiveArray(double[].class));
-        assertFalse(NativeTypeMapper.isPrimitiveArray(short[].class));
+        assertTrue(NativeTypeMapper.isPrimitiveArray(short[].class));
 
         assertTrue(NativeTypeMapper.isManagedNativeArray(NativeByteArray.class));
         assertTrue(NativeTypeMapper.isManagedNativeArray(NativeIntArray.class));
@@ -45,16 +46,23 @@ class NativeTypeMapperTest {
     @Test
     void mapsArrayLayouts() {
         assertEquals(ValueLayout.JAVA_BYTE, NativeTypeMapper.valueLayoutForArray(byte[].class));
-        assertEquals(ValueLayout.JAVA_INT, NativeTypeMapper.valueLayoutForArray(NativeIntArray.class));
+        assertEquals(
+                ValueLayout.JAVA_INT, NativeTypeMapper.valueLayoutForArray(NativeIntArray.class));
         assertEquals(ValueLayout.JAVA_LONG, NativeTypeMapper.valueLayoutForArray(long[].class));
-        assertEquals(ValueLayout.JAVA_FLOAT, NativeTypeMapper.valueLayoutForArray(NativeFloatArray.class));
+        assertEquals(
+                ValueLayout.JAVA_FLOAT,
+                NativeTypeMapper.valueLayoutForArray(NativeFloatArray.class));
         assertEquals(ValueLayout.JAVA_DOUBLE, NativeTypeMapper.valueLayoutForArray(double[].class));
     }
 
     @Test
     void reportsUnsupportedMappings() {
-        assertThrows(CppBridgeException.class, () -> NativeTypeMapper.valueLayoutForScalar(boolean.class));
-        assertThrows(CppBridgeException.class, () -> NativeTypeMapper.valueLayoutForArray(short[].class));
+        assertThrows(
+                CppBridgeException.class,
+                () -> NativeTypeMapper.valueLayoutForScalar(Object.class));
+        assertThrows(
+                CppBridgeException.class,
+                () -> NativeTypeMapper.valueLayoutForArray(String[].class));
         assertThrows(CppBridgeException.class, () -> NativeTypeMapper.arrayLength("not an array"));
     }
 
@@ -67,10 +75,10 @@ class NativeTypeMapperTest {
         assertEquals(1, NativeTypeMapper.arrayLength(new double[] {1.0}));
 
         try (NativeByteArray bytes = NativeByteArray.allocate(4);
-             NativeIntArray ints = NativeIntArray.allocate(5);
-             NativeLongArray longs = NativeLongArray.allocate(6);
-             NativeFloatArray floats = NativeFloatArray.allocate(7);
-             NativeDoubleArray doubles = NativeDoubleArray.allocate(8)) {
+                NativeIntArray ints = NativeIntArray.allocate(5);
+                NativeLongArray longs = NativeLongArray.allocate(6);
+                NativeFloatArray floats = NativeFloatArray.allocate(7);
+                NativeDoubleArray doubles = NativeDoubleArray.allocate(8)) {
             assertEquals(4, NativeTypeMapper.arrayLength(bytes));
             assertEquals(5, NativeTypeMapper.arrayLength(ints));
             assertEquals(6, NativeTypeMapper.arrayLength(longs));

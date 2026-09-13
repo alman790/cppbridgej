@@ -62,13 +62,6 @@ Output:
 target/cppbridgej-source.zip
 ```
 
-## Post-1.0 roadmap
+## Further work
 
-- strings;
-- structs and custom layouts;
-- callbacks;
-- native exception transport;
-- Gradle plugin;
-- WASM backend;
-- optional explicit library unloading;
-- additional CPU architecture validation.
+Header-based wrapper generation, additional CPU architectures, Gradle integration and explicit library unloading remain future work. Strings, records, callbacks and C++ exception guards are covered by the 1.1 release checks.

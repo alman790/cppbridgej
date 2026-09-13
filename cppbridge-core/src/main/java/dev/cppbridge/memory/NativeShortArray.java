@@ -8,7 +8,7 @@ import java.lang.foreign.ValueLayout;
 import java.util.Objects;
 
 /**
- * Off-heap {@code float[]} wrapper for single-precision numeric kernels.
+ * Off-heap {@code short[]} wrapper for native kernels.
  *
  * <p>The array owns a confined {@link Arena}. Native memory is released when {@link #close()} is
  * called. Use try-with-resources for deterministic cleanup.
@@ -16,13 +16,13 @@ import java.util.Objects;
  * <p>This type is intended for hot paths where the same data is passed to C++ repeatedly. It avoids
  * copying a Java heap array into native memory for every native call.
  */
-public final class NativeFloatArray implements NativeArray {
+public final class NativeShortArray implements NativeArray {
     private final Arena arena;
     private final MemorySegment segment;
     private final int length;
     private boolean closed;
 
-    private NativeFloatArray(Arena arena, int length) {
+    private NativeShortArray(Arena arena, int length) {
         if (length < 0) {
             throw new IllegalArgumentException("length must be >= 0");
         }
@@ -30,8 +30,8 @@ public final class NativeFloatArray implements NativeArray {
         this.length = length;
         this.segment =
                 arena.allocate(
-                        ValueLayout.JAVA_FLOAT.byteSize() * length,
-                        ValueLayout.JAVA_FLOAT.byteAlignment());
+                        ValueLayout.JAVA_SHORT.byteSize() * length,
+                        ValueLayout.JAVA_SHORT.byteAlignment());
     }
 
     /**
@@ -40,13 +40,13 @@ public final class NativeFloatArray implements NativeArray {
      * @param length number of elements
      * @return allocated native array
      */
-    public static NativeFloatArray allocate(int length) {
+    public static NativeShortArray allocate(int length) {
         if (length < 0) {
             throw new IllegalArgumentException("length must be >= 0");
         }
         Arena arena = Arena.ofConfined();
         try {
-            return new NativeFloatArray(arena, length);
+            return new NativeShortArray(arena, length);
         } catch (RuntimeException | Error failure) {
             arena.close();
             throw failure;
@@ -59,9 +59,9 @@ public final class NativeFloatArray implements NativeArray {
      * @param values source values
      * @return allocated native array containing {@code values}
      */
-    public static NativeFloatArray copyOf(float[] values) {
+    public static NativeShortArray copyOf(short[] values) {
         Objects.requireNonNull(values, "values");
-        NativeFloatArray array = allocate(values.length);
+        NativeShortArray array = allocate(values.length);
         array.copyFrom(values);
         return array;
     }
@@ -92,7 +92,7 @@ public final class NativeFloatArray implements NativeArray {
      * @param source source array with the same length as this native array
      * @throws CppBridgeException if the source length does not match
      */
-    public void copyFrom(float[] source) {
+    public void copyFrom(short[] source) {
         ensureOpen();
         Objects.requireNonNull(source, "source");
         if (source.length != length) {
@@ -108,7 +108,7 @@ public final class NativeFloatArray implements NativeArray {
      * @param target target array with the same length as this native array
      * @throws CppBridgeException if the target length does not match
      */
-    public void copyTo(float[] target) {
+    public void copyTo(short[] target) {
         ensureOpen();
         Objects.requireNonNull(target, "target");
         if (target.length != length) {
@@ -123,9 +123,9 @@ public final class NativeFloatArray implements NativeArray {
      *
      * @return Java heap copy of this array
      */
-    public float[] toArray() {
+    public short[] toArray() {
         ensureOpen();
-        float[] copy = new float[length];
+        short[] copy = new short[length];
         copyTo(copy);
         return copy;
     }
@@ -136,10 +136,10 @@ public final class NativeFloatArray implements NativeArray {
      * @param index element index
      * @return element value
      */
-    public float get(int index) {
+    public short get(int index) {
         ensureOpen();
         checkIndex(index);
-        return segment.getAtIndex(ValueLayout.JAVA_FLOAT, index);
+        return segment.getAtIndex(ValueLayout.JAVA_SHORT, index);
     }
 
     /**
@@ -148,10 +148,10 @@ public final class NativeFloatArray implements NativeArray {
      * @param index element index
      * @param value new element value
      */
-    public void set(int index, float value) {
+    public void set(int index, short value) {
         ensureOpen();
         checkIndex(index);
-        segment.setAtIndex(ValueLayout.JAVA_FLOAT, index, value);
+        segment.setAtIndex(ValueLayout.JAVA_SHORT, index, value);
     }
 
     private void checkIndex(int index) {
@@ -162,7 +162,7 @@ public final class NativeFloatArray implements NativeArray {
 
     private void ensureOpen() {
         if (closed) {
-            throw new CppBridgeException("NativeFloatArray is already closed");
+            throw new CppBridgeException("NativeShortArray is already closed");
         }
     }
 

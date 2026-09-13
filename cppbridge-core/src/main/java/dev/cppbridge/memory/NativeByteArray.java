@@ -10,14 +10,13 @@ import java.util.Objects;
 /**
  * Off-heap {@code byte[]} wrapper for image, audio, and binary kernels.
  *
- * <p>The array owns a confined {@link Arena}. Native memory is released when
- * {@link #close()} is called. Use try-with-resources for deterministic cleanup.</p>
+ * <p>The array owns a confined {@link Arena}. Native memory is released when {@link #close()} is
+ * called. Use try-with-resources for deterministic cleanup.
  *
- * <p>This type is intended for hot paths where the same data is passed to C++
- * repeatedly. It avoids copying a Java heap array into native memory for every
- * native call.</p>
+ * <p>This type is intended for hot paths where the same data is passed to C++ repeatedly. It avoids
+ * copying a Java heap array into native memory for every native call.
  */
-public final class NativeByteArray implements AutoCloseable {
+public final class NativeByteArray implements NativeArray {
     private final Arena arena;
     private final MemorySegment segment;
     private final int length;
@@ -29,7 +28,10 @@ public final class NativeByteArray implements AutoCloseable {
         }
         this.arena = Objects.requireNonNull(arena, "arena");
         this.length = length;
-        this.segment = arena.allocate(ValueLayout.JAVA_BYTE.byteSize() * length, ValueLayout.JAVA_BYTE.byteAlignment());
+        this.segment =
+                arena.allocate(
+                        ValueLayout.JAVA_BYTE.byteSize() * length,
+                        ValueLayout.JAVA_BYTE.byteAlignment());
     }
 
     /**
@@ -94,7 +96,8 @@ public final class NativeByteArray implements AutoCloseable {
         ensureOpen();
         Objects.requireNonNull(source, "source");
         if (source.length != length) {
-            throw new CppBridgeException("Source array length mismatch: expected " + length + ", got " + source.length);
+            throw new CppBridgeException(
+                    "Source array length mismatch: expected " + length + ", got " + source.length);
         }
         segment.copyFrom(MemorySegment.ofArray(source));
     }
@@ -109,7 +112,8 @@ public final class NativeByteArray implements AutoCloseable {
         ensureOpen();
         Objects.requireNonNull(target, "target");
         if (target.length != length) {
-            throw new CppBridgeException("Target array length mismatch: expected " + length + ", got " + target.length);
+            throw new CppBridgeException(
+                    "Target array length mismatch: expected " + length + ", got " + target.length);
         }
         MemorySegment.ofArray(target).copyFrom(segment);
     }
@@ -148,7 +152,6 @@ public final class NativeByteArray implements AutoCloseable {
         return Byte.toUnsignedInt(get(index));
     }
 
-
     /**
      * Writes one element to native memory.
      *
@@ -166,8 +169,7 @@ public final class NativeByteArray implements AutoCloseable {
      *
      * @param index element index
      * @param value value in the {@code [0, 255]} range
-     * @throws IllegalArgumentException if {@code value} is outside the unsigned
-     *                                  byte range
+     * @throws IllegalArgumentException if {@code value} is outside the unsigned byte range
      */
     public void setUnsigned(int index, int value) {
         ensureOpen();
@@ -177,7 +179,6 @@ public final class NativeByteArray implements AutoCloseable {
         }
         segment.setAtIndex(ValueLayout.JAVA_BYTE, index, (byte) value);
     }
-
 
     private void checkIndex(int index) {
         if (index < 0 || index >= length) {
@@ -192,8 +193,8 @@ public final class NativeByteArray implements AutoCloseable {
     }
 
     /**
-     * Releases the native memory owned by this array. Calling this method more
-     * than once has no effect.
+     * Releases the native memory owned by this array. Calling this method more than once has no
+     * effect.
      */
     @Override
     public void close() {

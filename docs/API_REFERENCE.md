@@ -7,6 +7,7 @@ T CppBridge.load(Class<T> api)
 T CppBridge.load(Class<T> api, String libraryPath)
 BindingReport CppBridge.inspect(Class<?> api)
 BindingReport CppBridge.inspect(Class<?> api, String libraryPath)
+MethodHandle CppBridge.downcall(String libraryPath, String symbol, FunctionDescriptor descriptor, Linker.Option... options)
 ```
 
 `load` creates a dynamic proxy for a Java interface annotated with `@CppModule`. Bindable abstract methods are resolved eagerly, so missing native symbols and unsupported signatures fail during load.
@@ -58,6 +59,9 @@ Values:
 | Java type | Native boundary type |
 | --- | --- |
 | `byte` | `std::int8_t` or `std::uint8_t` |
+| `short` | `std::int16_t` |
+| `char` | `char16_t` / `std::uint16_t` |
+| `boolean` | `bool` |
 | `int` | `std::int32_t` |
 | `long` | `std::int64_t` |
 | `float` | `float` |
@@ -70,6 +74,9 @@ CppBridgeJ validates Java declarations and exported symbol names. It does not in
 
 ```text
 byte[]
+short[]
+char[]
+boolean[]
 int[]
 long[]
 float[]
@@ -82,6 +89,9 @@ Heap arrays are mapped to pointer plus a signed 32-bit `length`.
 
 ```text
 NativeByteArray
+NativeShortArray
+NativeCharArray
+NativeBooleanArray
 NativeIntArray
 NativeLongArray
 NativeFloatArray
@@ -120,3 +130,19 @@ INSPECTION_FAILED
 ```
 
 Binding reports include only bindable abstract interface methods. Default and static methods are skipped so runtime diagnostics and proxy loading agree on the same native surface.
+
+## Rich types
+
+- `@CppStruct`: record fields in native declaration order, with automatic natural padding.
+- `@CppFixedArray(N)`: positive inline array count on a record component.
+- `StructType<T>`: cached layout, byte size, field offsets, allocation in a caller arena, record read/write.
+- `NativeStruct<T>`: confined owned struct pointer with `get`, `set`, `segment`, `close`.
+- `NativeStructArray<T>`: contiguous owned structs with indexed `get`/`set`; expands to pointer and count.
+- `CppEnum`: enum constants implement `nativeValue()` with unique int32_t values.
+- `@CppString(maxBytes=N)`: required bound on String returns, optional bound on String parameters.
+- `@CppCallback`: non-generic functional interface for a temporary native function pointer.
+- `NativeCallback.create(Type.class, implementation)`: retained callback with `segment`, `checkFailure`, `close`.
+- `NativeHandle.own(pointer, destructor)`: confined C++ object ownership; `use` prevents close during an operation.
+- `@CppStatus(error="symbol", maxMessageBytes=1024)`: native status and error-message convention for void methods.
+
+See [rich types](RICH_TYPES.md) for complete declarations and ownership rules.

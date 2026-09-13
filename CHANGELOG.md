@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0 - 2026-09-13
+
+- Add record-based struct values, nested layouts, fixed inline arrays, and owned struct buffers.
+- Add UTF-8 strings, explicit int32 enums, pointers, and boolean/short/char scalars and buffers.
+- Add temporary and retained callbacks with contained Java failures and native-thread support.
+- Add C++ status-to-exception mapping, a bundled guard header, and owned opaque handles.
+- Add explicit FFM downcalls for unions, custom layouts, and C variadic functions.
+- Add an executable C++ class/STL example and cross-platform ABI and lifecycle tests.
+- Compile MSVC sources as UTF-8.
+
 ## 1.0.0 - 2026-09-12
 
 - Package native libraries in JARs and resolve them through the API class loader when the development binary is absent.

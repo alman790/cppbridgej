@@ -7,18 +7,32 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class CppCompilerCommandBuilder {
-    private CppCompilerCommandBuilder() {
-    }
+    private CppCompilerCommandBuilder() {}
 
     static List<String> build(
-            Platform platform, String compiler, String optimizationLevel, String cppStandard,
-            List<String> extraCompilerArgs, List<Path> cppFiles, Path outputLibrary,
-            List<Path> includeDirectories, List<String> extraLinkerArgs
-    ) throws MojoExecutionException {
-        List<String> command = build(platform, compiler, optimizationLevel, cppStandard,
-                extraCompilerArgs, cppFiles, outputLibrary);
+            Platform platform,
+            String compiler,
+            String optimizationLevel,
+            String cppStandard,
+            List<String> extraCompilerArgs,
+            List<Path> cppFiles,
+            Path outputLibrary,
+            List<Path> includeDirectories,
+            List<String> extraLinkerArgs)
+            throws MojoExecutionException {
+        List<String> command =
+                build(
+                        platform,
+                        compiler,
+                        optimizationLevel,
+                        cppStandard,
+                        extraCompilerArgs,
+                        cppFiles,
+                        outputLibrary);
         for (Path directory : includeDirectories) {
-            command.add((platform == Platform.WINDOWS ? "/I" : "-I") + directory.toAbsolutePath().normalize());
+            command.add(
+                    (platform == Platform.WINDOWS ? "/I" : "-I")
+                            + directory.toAbsolutePath().normalize());
         }
         if (extraLinkerArgs != null && !extraLinkerArgs.isEmpty()) {
             if (platform == Platform.WINDOWS) {
@@ -36,12 +50,25 @@ final class CppCompilerCommandBuilder {
             String cppStandard,
             List<String> extraCompilerArgs,
             List<Path> cppFiles,
-            Path outputLibrary
-    ) throws MojoExecutionException {
+            Path outputLibrary)
+            throws MojoExecutionException {
         if (platform == Platform.WINDOWS) {
-            return buildMsvcCommand(compiler, optimizationLevel, cppStandard, extraCompilerArgs, cppFiles, outputLibrary);
+            return buildMsvcCommand(
+                    compiler,
+                    optimizationLevel,
+                    cppStandard,
+                    extraCompilerArgs,
+                    cppFiles,
+                    outputLibrary);
         }
-        return buildUnixCommand(platform, compiler, optimizationLevel, cppStandard, extraCompilerArgs, cppFiles, outputLibrary);
+        return buildUnixCommand(
+                platform,
+                compiler,
+                optimizationLevel,
+                cppStandard,
+                extraCompilerArgs,
+                cppFiles,
+                outputLibrary);
     }
 
     private static List<String> buildUnixCommand(
@@ -51,8 +78,8 @@ final class CppCompilerCommandBuilder {
             String cppStandard,
             List<String> extraCompilerArgs,
             List<Path> cppFiles,
-            Path outputLibrary
-    ) throws MojoExecutionException {
+            Path outputLibrary)
+            throws MojoExecutionException {
         validateOptimizationLevel(optimizationLevel);
         validateUnixStandard(cppStandard);
 
@@ -77,15 +104,19 @@ final class CppCompilerCommandBuilder {
             String cppStandard,
             List<String> extraCompilerArgs,
             List<Path> cppFiles,
-            Path outputLibrary
-    ) throws MojoExecutionException {
+            Path outputLibrary)
+            throws MojoExecutionException {
         List<String> command = new ArrayList<>();
-        command.add(compiler == null || compiler.isBlank() ? Platform.WINDOWS.defaultCompiler() : compiler);
+        command.add(
+                compiler == null || compiler.isBlank()
+                        ? Platform.WINDOWS.defaultCompiler()
+                        : compiler);
         command.add("/nologo");
         command.add(msvcOptimizationFlag(optimizationLevel));
         command.add(msvcStandardFlag(cppStandard));
         command.add("/LD");
         command.add("/EHsc");
+        command.add("/utf-8");
         addExtraCompilerArgs(command, extraCompilerArgs);
         for (Path cppFile : cppFiles) {
             command.add(cppFile.toAbsolutePath().toString());
@@ -109,14 +140,17 @@ final class CppCompilerCommandBuilder {
         }
     }
 
-    private static void validateOptimizationLevel(String optimizationLevel) throws MojoExecutionException {
+    private static void validateOptimizationLevel(String optimizationLevel)
+            throws MojoExecutionException {
         switch (optimizationLevel) {
             case "O0", "O1", "O2", "O3" -> {
                 return;
             }
-            default -> throw new MojoExecutionException(
-                    "Unsupported optimizationLevel '" + optimizationLevel + "'. Supported values: O0, O1, O2, O3."
-            );
+            default ->
+                    throw new MojoExecutionException(
+                            "Unsupported optimizationLevel '"
+                                    + optimizationLevel
+                                    + "'. Supported values: O0, O1, O2, O3.");
         }
     }
 
@@ -125,20 +159,25 @@ final class CppCompilerCommandBuilder {
             case "c++17", "c++20", "c++23" -> {
                 return;
             }
-            default -> throw new MojoExecutionException(
-                    "Unsupported cppStandard '" + cppStandard + "'. Supported values: c++17, c++20, c++23."
-            );
+            default ->
+                    throw new MojoExecutionException(
+                            "Unsupported cppStandard '"
+                                    + cppStandard
+                                    + "'. Supported values: c++17, c++20, c++23.");
         }
     }
 
-    private static String msvcOptimizationFlag(String optimizationLevel) throws MojoExecutionException {
+    private static String msvcOptimizationFlag(String optimizationLevel)
+            throws MojoExecutionException {
         return switch (optimizationLevel) {
             case "O0" -> "/Od";
             case "O1" -> "/O1";
             case "O2", "O3" -> "/O2";
-            default -> throw new MojoExecutionException(
-                    "Unsupported optimizationLevel '" + optimizationLevel + "' for MSVC. Supported values: O0, O1, O2, O3."
-            );
+            default ->
+                    throw new MojoExecutionException(
+                            "Unsupported optimizationLevel '"
+                                    + optimizationLevel
+                                    + "' for MSVC. Supported values: O0, O1, O2, O3.");
         };
     }
 
@@ -147,9 +186,11 @@ final class CppCompilerCommandBuilder {
             case "c++17" -> "/std:c++17";
             case "c++20" -> "/std:c++20";
             case "c++23" -> "/std:c++latest";
-            default -> throw new MojoExecutionException(
-                    "Unsupported cppStandard '" + cppStandard + "' for MSVC. Supported values: c++17, c++20, c++23."
-            );
+            default ->
+                    throw new MojoExecutionException(
+                            "Unsupported cppStandard '"
+                                    + cppStandard
+                                    + "' for MSVC. Supported values: c++17, c++20, c++23.");
         };
     }
 }

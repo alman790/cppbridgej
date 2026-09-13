@@ -78,14 +78,15 @@ def smoke_bundle(archive):
         java = str(Path(os.environ["JAVA_HOME"]) / "bin/java") if os.environ.get("JAVA_HOME") else "java"
         result = subprocess.run([java, "--enable-native-access=ALL-UNNAMED", "-cp", "lib/*",
                                  "dev.cppbridge.example.Main"], cwd=directory,
-                                capture_output=True, text=True, timeout=30, check=True)
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=True)
         for expected in ("Healthy: true", "sum(10, 20) = 30", "average = 25.0",
-                         "after brightenNative = [30, 120, 255]"):
+                         "after brightenNative = [30, 120, 255]", "history average = 5.0",
+                         "translated point = Point[x=4.0, y=6.0]"):
             if expected not in result.stdout:
                 raise AssertionError(result.stdout + result.stderr)
         result = subprocess.run([java, "--enable-native-access=ALL-UNNAMED", "-jar",
                                  "lib/benchmarks.jar", "-l"], cwd=directory,
-                                capture_output=True, text=True, timeout=30, check=True)
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=True)
         if "ArrayBenchmarks" not in result.stdout:
             raise AssertionError(result.stdout + result.stderr)
     print("Platform bundle smoke test passed")
