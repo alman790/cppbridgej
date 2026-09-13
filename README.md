@@ -4,6 +4,22 @@ Call C++ functions from Java through the Foreign Function & Memory API. Declare 
 
 CppBridgeJ works best for operations over whole buffers: image processing, numerical transforms, audio, and simulation steps. Small calls can cost more than the equivalent Java code.
 
+## Supported bindings
+
+| Java | C/C++ boundary |
+| --- | --- |
+| Primitive scalars and arrays | Fixed-width numbers, `bool`, `char16_t`, pointer/length buffers |
+| `@CppStruct` records | Structs by value, including nested structs and fixed inline arrays |
+| `NativeStruct<T>`, `NativeStructArray<T>` | Owned struct pointers and contiguous buffers |
+| `String`, `@CppString` | NUL-terminated UTF-8 with bounded result copying |
+| Enums implementing `CppEnum` | Explicit `int32_t` enum values |
+| `MemorySegment`, `NativeHandle` | Borrowed pointers and owned opaque C++ objects |
+| `@CppCallback`, `NativeCallback<T>` | C function pointers calling Java |
+| `@CppStatus` and `cppbridge::guard` | Caught C++ exceptions translated into Java exceptions |
+| `CppBridge.downcall` | Explicit FFM layouts for unions and C variadic functions |
+
+C++ classes, STL containers, templates, and virtual dispatch stay inside a C++ wrapper with C-compatible exports. See [rich types](docs/RICH_TYPES.md) and the [class/STL example](cppbridge-example/src/main/java/dev/cppbridge/example/RichTypesDemo.java). Arbitrary C++ object layouts are not inferred from headers.
+
 ## Build and run
 
 You need JDK 22 or newer and a C++ compiler: `g++` on Linux, `clang++` on macOS, or MSVC `cl` and `dumpbin` in a Windows Developer Command Prompt. Maven Wrapper is included.
@@ -15,7 +31,7 @@ You need JDK 22 or newer and a C++ compiler: `g++` on Linux, `clang++` on macOS,
 
 On Windows, use `mvnw.cmd`. An existing Maven 3.9+ installation also works.
 
-Version `1.0.0` is distributed through [GitHub Releases](https://github.com/alman790/cppbridgej/releases/tag/v1.0.0). Download a platform bundle to run the example without a compiler, or install the Maven bundle as described in the quickstart. Maven Central publication is pending.
+Version `1.1.0` is distributed through [GitHub Releases](https://github.com/alman790/cppbridgej/releases/tag/v1.1.0). Download a platform bundle to run the example without a compiler, or install the Maven bundle as described in the quickstart. Maven Central publication is pending.
 
 See [Quickstart](docs/QUICKSTART.md) for a complete application with its own `pom.xml`, C++ source, and Java entry point.
 
@@ -71,7 +87,7 @@ Add the runtime dependency:
 <dependency>
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridge-core</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -81,7 +97,7 @@ Add the plugin under `build/plugins`. The library name must match `@CppModule`:
 <plugin>
     <groupId>dev.cppbridge</groupId>
     <artifactId>cppbridge-maven-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <configuration>
         <libraryName>fastmath</libraryName>
         <expectedSymbols>
@@ -151,4 +167,4 @@ For performance work, use the [JMH benchmarks](docs/PERFORMANCE_NOTES.md). Previ
 - [Limitations](docs/KNOWN_LIMITATIONS.md)
 - [Publishing](docs/PUBLISHING.md)
 
-The supported boundary consists of primitive scalars, primitive arrays, and managed native arrays. Strings, structs, callbacks, C++ classes, exception transport, and WASM are not implemented.
+The automatic boundary supports scalars, arrays, strings, enums, pointers, structs and callbacks. C++ classes and STL require C-compatible wrappers; explicit FFM descriptors cover unions and C variadic calls. See [known limitations](docs/KNOWN_LIMITATIONS.md) for ownership and ABI requirements. WASM is not implemented.

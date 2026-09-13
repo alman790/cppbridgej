@@ -10,14 +10,13 @@ import java.util.Objects;
 /**
  * Off-heap {@code double[]} wrapper for double-precision numeric kernels.
  *
- * <p>The array owns a confined {@link Arena}. Native memory is released when
- * {@link #close()} is called. Use try-with-resources for deterministic cleanup.</p>
+ * <p>The array owns a confined {@link Arena}. Native memory is released when {@link #close()} is
+ * called. Use try-with-resources for deterministic cleanup.
  *
- * <p>This type is intended for hot paths where the same data is passed to C++
- * repeatedly. It avoids copying a Java heap array into native memory for every
- * native call.</p>
+ * <p>This type is intended for hot paths where the same data is passed to C++ repeatedly. It avoids
+ * copying a Java heap array into native memory for every native call.
  */
-public final class NativeDoubleArray implements AutoCloseable {
+public final class NativeDoubleArray implements NativeArray {
     private final Arena arena;
     private final MemorySegment segment;
     private final int length;
@@ -29,7 +28,10 @@ public final class NativeDoubleArray implements AutoCloseable {
         }
         this.arena = Objects.requireNonNull(arena, "arena");
         this.length = length;
-        this.segment = arena.allocate(ValueLayout.JAVA_DOUBLE.byteSize() * length, ValueLayout.JAVA_DOUBLE.byteAlignment());
+        this.segment =
+                arena.allocate(
+                        ValueLayout.JAVA_DOUBLE.byteSize() * length,
+                        ValueLayout.JAVA_DOUBLE.byteAlignment());
     }
 
     /**
@@ -94,7 +96,8 @@ public final class NativeDoubleArray implements AutoCloseable {
         ensureOpen();
         Objects.requireNonNull(source, "source");
         if (source.length != length) {
-            throw new CppBridgeException("Source array length mismatch: expected " + length + ", got " + source.length);
+            throw new CppBridgeException(
+                    "Source array length mismatch: expected " + length + ", got " + source.length);
         }
         segment.copyFrom(MemorySegment.ofArray(source));
     }
@@ -109,7 +112,8 @@ public final class NativeDoubleArray implements AutoCloseable {
         ensureOpen();
         Objects.requireNonNull(target, "target");
         if (target.length != length) {
-            throw new CppBridgeException("Target array length mismatch: expected " + length + ", got " + target.length);
+            throw new CppBridgeException(
+                    "Target array length mismatch: expected " + length + ", got " + target.length);
         }
         MemorySegment.ofArray(target).copyFrom(segment);
     }
@@ -163,8 +167,8 @@ public final class NativeDoubleArray implements AutoCloseable {
     }
 
     /**
-     * Releases the native memory owned by this array. Calling this method more
-     * than once has no effect.
+     * Releases the native memory owned by this array. Calling this method more than once has no
+     * effect.
      */
     @Override
     public void close() {

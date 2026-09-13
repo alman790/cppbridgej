@@ -2,7 +2,8 @@ package dev.cppbridge.runtime;
 
 import dev.cppbridge.ArrayDirection;
 import dev.cppbridge.CppBridgeException;
-import dev.cppbridge.annotations.CppArray;
+import dev.cppbridge.annotations.*;
+import dev.cppbridge.memory.*;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
@@ -25,9 +26,9 @@ import java.util.Objects;
 /**
  * Invocation handler used by CppBridgeJ dynamic proxies.
  *
- * <p>The handler maps Java calls to downcall method handles created by the
- * Foreign Function &amp; Memory API. Primitive arrays are copied to temporary
- * native memory for a call. Managed native arrays are passed directly.</p>
+ * <p>The handler maps Java calls to downcall method handles created by the Foreign Function &amp;
+ * Memory API. Primitive arrays are copied to temporary native memory for a call. Managed native
+ * arrays are passed directly.
  */
 public final class NativeInvocationHandler implements InvocationHandler {
     private final Linker linker;
@@ -62,32 +63,87 @@ public final class NativeInvocationHandler implements InvocationHandler {
             this.linker = Linker.nativeLinker();
             this.symbolLookup = SymbolLookup.libraryLookup(path, libraryArena);
         } catch (IllegalCallerException exception) {
-            throw new CppBridgeException("Native access is disabled. Start Java with "
-                    + "--enable-native-access=ALL-UNNAMED", exception);
+            throw new CppBridgeException(
+                    "Native access is disabled. Start Java with "
+                            + "--enable-native-access=ALL-UNNAMED",
+                    exception);
         } catch (IllegalArgumentException | UnsatisfiedLinkError exception) {
-            throw new CppBridgeException("Cannot open native library: " + path
-                    + ". Check its architecture and dependent libraries. " + exception.getMessage(), exception);
+            throw new CppBridgeException(
+                    "Cannot open native library: "
+                            + path
+                            + ". Check its architecture and dependent libraries. "
+                            + exception.getMessage(),
+                    exception);
         }
 
         Map<Method, Binding> resolved = new LinkedHashMap<>();
-        descriptors.forEach((method, descriptor) -> {
-            String name = NativeApiMethods.nativeName(method);
-            MemorySegment address = symbolLookup.find(name).orElseThrow(() ->
-                    new CppBridgeException("Native symbol not found: " + name + " for "
-                            + method.toGenericString() + " in " + path));
-            ArrayDirection[] directions = new ArrayDirection[method.getParameterCount()];
-            for (int i = 0; i < directions.length; i++) {
-                directions[i] = resolveArrayDirection(method, i);
-            }
-            resolved.put(method, new Binding(linker.downcallHandle(address, descriptor),
-                    method.getParameterTypes(), directions));
-        });
+        descriptors.forEach(
+                (method, descriptor) -> {
+                    String name = NativeApiMethods.nativeName(method);
+                    MemorySegment address =
+                            symbolLookup
+                                    .find(name)
+                                    .orElseThrow(
+                                            () ->
+                                                    new CppBridgeException(
+                                                            "Native symbol not found: "
+                                                                    + name
+                                                                    + " for "
+                                                                    + method.toGenericString()
+                                                                    + " in "
+                                                                    + path));
+                    ArrayDirection[] directions = new ArrayDirection[method.getParameterCount()];
+                    for (int i = 0; i < directions.length; i++) {
+                        directions[i] = resolveArrayDirection(method, i);
+                    }
+                    CppStatus status = method.getAnnotation(CppStatus.class);
+                    MethodHandle errorHandle = null;
+                    if (status != null) {
+                        MemorySegment errorAddress =
+                                symbolLookup
+                                        .find(status.error())
+                                        .orElseThrow(
+                                                () ->
+                                                        new CppBridgeException(
+                                                                "Native error symbol not found: "
+                                                                        + status.error()));
+                        errorHandle =
+                                linker.downcallHandle(
+                                        errorAddress,
+                                        FunctionDescriptor.of(
+                                                java.lang.foreign.ValueLayout.ADDRESS));
+                    }
+                    StructType<?>[] structTypes = new StructType<?>[method.getParameterCount()];
+                    for (int i = 0; i < structTypes.length; i++) {
+                        Class<?> type = method.getParameterTypes()[i];
+                        if (type == NativeStruct.class || type == NativeStructArray.class) {
+                            var generic =
+                                    (java.lang.reflect.ParameterizedType)
+                                            method.getGenericParameterTypes()[i];
+                            structTypes[i] =
+                                    StructType.ofRecord(
+                                            (Class<?>) generic.getActualTypeArguments()[0]);
+                        }
+                    }
+                    try {
+                        resolved.put(
+                                method,
+                                new Binding(
+                                        linker.downcallHandle(address, descriptor),
+                                        method.getParameterTypes(),
+                                        directions,
+                                        structTypes,
+                                        errorHandle));
+                    } catch (IllegalArgumentException exception) {
+                        throw new CppBridgeException(
+                                "Unsupported ABI layout for " + method.toGenericString(),
+                                exception);
+                    }
+                });
         this.bindings = Map.copyOf(resolved);
     }
 
-    /**
-     * Dispatches a proxy method call to the matching native symbol.
-     */
+    /** Dispatches a proxy method call to the matching native symbol. */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (NativeApiMethods.isObjectMethod(method)) {
@@ -95,8 +151,10 @@ public final class NativeInvocationHandler implements InvocationHandler {
         }
         if (method.isDefault()) {
             if (!method.canAccess(proxy)) {
-                return MethodHandles.privateLookupIn(method.getDeclaringClass(), MethodHandles.lookup())
-                        .unreflectSpecial(method, method.getDeclaringClass()).bindTo(proxy)
+                return MethodHandles.privateLookupIn(
+                                method.getDeclaringClass(), MethodHandles.lookup())
+                        .unreflectSpecial(method, method.getDeclaringClass())
+                        .bindTo(proxy)
                         .invokeWithArguments(args == null ? new Object[0] : args);
             }
             return InvocationHandler.invokeDefault(proxy, method, args);
@@ -108,21 +166,30 @@ public final class NativeInvocationHandler implements InvocationHandler {
             throw new CppBridgeException("No native binding for " + method.toGenericString());
         }
 
+        List<NativeCallback<?>> callbacks = new ArrayList<>();
         try (Arena callArena = Arena.ofConfined()) {
             List<Object> nativeArgs = new ArrayList<>();
             List<ArrayCopyBack> copyBackTasks = new ArrayList<>();
+            if (NativeCodec.isStruct(method.getReturnType())) nativeArgs.add(callArena);
 
             Class<?>[] parameterTypes = binding.parameterTypes();
             if (safeArgs.length != parameterTypes.length) {
-                throw new CppBridgeException("Invalid argument count for method " + method.getName() +
-                        ": expected " + parameterTypes.length + ", got " + safeArgs.length);
+                throw new CppBridgeException(
+                        "Invalid argument count for method "
+                                + method.getName()
+                                + ": expected "
+                                + parameterTypes.length
+                                + ", got "
+                                + safeArgs.length);
             }
 
             // One Java array must remain one native pointer, even when parameter directions differ.
             Map<Object, ArrayDirection> directions = new IdentityHashMap<>();
             for (int i = 0; i < parameterTypes.length; i++) {
-                if (NativeTypeMapper.isPrimitiveArray(parameterTypes[i]) && safeArgs[i] != null) {
-                    directions.merge(safeArgs[i], binding.directions()[i],
+                if (NativeTypeMapper.isHeapArray(parameterTypes[i]) && safeArgs[i] != null) {
+                    directions.merge(
+                            safeArgs[i],
+                            binding.directions()[i],
                             (left, right) -> left == right ? left : ArrayDirection.IN_OUT);
                 }
             }
@@ -132,9 +199,13 @@ public final class NativeInvocationHandler implements InvocationHandler {
                 Class<?> parameterType = parameterTypes[i];
                 Object value = safeArgs[i];
 
-                if (NativeTypeMapper.isPrimitiveArray(parameterType)) {
+                if (NativeTypeMapper.isHeapArray(parameterType)) {
                     if (value == null) {
-                        throw new CppBridgeException("Array argument cannot be null: " + method.getName() + " parameter #" + i);
+                        throw new CppBridgeException(
+                                "Array argument cannot be null: "
+                                        + method.getName()
+                                        + " parameter #"
+                                        + i);
                     }
 
                     MemorySegment segment = segments.get(value);
@@ -150,44 +221,97 @@ public final class NativeInvocationHandler implements InvocationHandler {
                     nativeArgs.add(NativeTypeMapper.arrayLength(value));
                 } else if (NativeTypeMapper.isManagedNativeArray(parameterType)) {
                     if (value == null) {
-                        throw new CppBridgeException("Native array argument cannot be null: " + method.getName() + " parameter #" + i);
+                        throw new CppBridgeException(
+                                "Native array argument cannot be null: "
+                                        + method.getName()
+                                        + " parameter #"
+                                        + i);
+                    }
+                    if (value instanceof NativeStructArray<?> array
+                            && binding.structTypes()[i] != array.type()) {
+                        throw new CppBridgeException(
+                                "Native struct array type mismatch: parameter #" + i);
                     }
                     nativeArgs.add(NativeArrayMemory.segmentOfManagedNativeArray(value));
                     nativeArgs.add(NativeArrayMemory.lengthOfManagedNativeArray(value));
+                } else if (parameterType == String.class) {
+                    MemorySegment string = NativeCodec.string(callArena, (String) value);
+                    CppString bound = method.getParameters()[i].getAnnotation(CppString.class);
+                    if (bound != null && string.byteSize() > bound.maxBytes())
+                        throw new CppBridgeException("UTF-8 string exceeds byte bound");
+                    nativeArgs.add(string);
+                } else if (parameterType == NativeStruct.class) {
+                    if (!(value instanceof NativeStruct<?> struct)
+                            || binding.structTypes()[i] != struct.type()) {
+                        throw new CppBridgeException(
+                                "Native struct type mismatch: parameter #" + i);
+                    }
+                    nativeArgs.add(struct.segment());
+                } else if (parameterType.isAnnotationPresent(CppCallback.class)) {
+                    NativeCallback<?> callback = temporaryCallback(parameterType, value);
+                    callbacks.add(callback);
+                    nativeArgs.add(callback.segment());
                 } else {
                     if (value == null) {
-                        throw new CppBridgeException("Scalar argument cannot be null: " + method.getName()
-                                + " parameter #" + i);
+                        throw new CppBridgeException(
+                                "Scalar argument cannot be null: "
+                                        + method.getName()
+                                        + " parameter #"
+                                        + i);
                     }
-                    nativeArgs.add(value);
+                    nativeArgs.add(NativeCodec.toNative(parameterType, value, callArena));
                 }
             }
 
             Object result = binding.handle().invokeWithArguments(nativeArgs);
+            for (NativeCallback<?> callback : callbacks) callback.checkFailure();
+            CppStatus status = method.getAnnotation(CppStatus.class);
+            if (status != null && ((Integer) result) != 0) {
+                MemorySegment error = (MemorySegment) binding.errorHandle().invokeWithArguments();
+                String message = NativeCodec.string(error, status.maxMessageBytes());
+                throw new CppBridgeException(
+                        "Native operation failed ("
+                                + result
+                                + "): "
+                                + (message == null || message.isBlank()
+                                        ? method.getName()
+                                        : message));
+            }
 
             for (ArrayCopyBack task : copyBackTasks) {
                 NativeArrayMemory.copyBack(task.segment(), task.array());
             }
 
-            return result;
+            if (method.getReturnType() == String.class) {
+                return NativeCodec.string(
+                        (MemorySegment) result, method.getAnnotation(CppString.class).maxBytes());
+            }
+            return NativeCodec.fromNative(method.getReturnType(), result);
         } catch (CppBridgeException exception) {
             throw exception;
         } catch (Error error) {
             throw error;
         } catch (Throwable throwable) {
             throw wrapNativeFailure(method, throwable);
+        } finally {
+            for (NativeCallback<?> callback : callbacks) callback.close();
         }
     }
 
-    static CppBridgeException wrapNativeFailure(Method method, Throwable throwable) throws Throwable {
+    static CppBridgeException wrapNativeFailure(Method method, Throwable throwable)
+            throws Throwable {
         if (throwable instanceof CppBridgeException exception) {
             throw exception;
         }
         if (throwable instanceof Error error) {
             throw error;
         }
-        return new CppBridgeException("Native call failed: " + method.getName()
-                + " -> " + NativeApiMethods.nativeName(method), throwable);
+        return new CppBridgeException(
+                "Native call failed: "
+                        + method.getName()
+                        + " -> "
+                        + NativeApiMethods.nativeName(method),
+                throwable);
     }
 
     private static ArrayDirection resolveArrayDirection(Method method, int parameterIndex) {
@@ -197,16 +321,27 @@ public final class NativeInvocationHandler implements InvocationHandler {
 
     private static Object invokeObjectMethod(Object proxy, Method method, Object[] args) {
         return switch (method.getName()) {
-            case "toString" -> "CppBridge proxy for " + proxy.getClass().getInterfaces()[0].getName();
+            case "toString" ->
+                    "CppBridge proxy for " + proxy.getClass().getInterfaces()[0].getName();
             case "hashCode" -> System.identityHashCode(proxy);
             case "equals" -> proxy == args[0];
-            default -> throw new UnsupportedOperationException("Unsupported Object method: " + method.getName());
+            default ->
+                    throw new UnsupportedOperationException(
+                            "Unsupported Object method: " + method.getName());
         };
     }
 
-    private record Binding(MethodHandle handle, Class<?>[] parameterTypes, ArrayDirection[] directions) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static NativeCallback<?> temporaryCallback(Class<?> type, Object value) {
+        return NativeCallback.create((Class) type, value);
     }
 
-    private record ArrayCopyBack(MemorySegment segment, Object array) {
-    }
+    private record Binding(
+            MethodHandle handle,
+            Class<?>[] parameterTypes,
+            ArrayDirection[] directions,
+            StructType<?>[] structTypes,
+            MethodHandle errorHandle) {}
+
+    private record ArrayCopyBack(MemorySegment segment, Object array) {}
 }

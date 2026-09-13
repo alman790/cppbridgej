@@ -15,15 +15,6 @@
 
 The original release checklist also requires Maven Central credentials and signing keys configured outside the repository. That gate is not satisfied by the GitHub release: Central publication remains pending, and the quickstart explicitly installs the GitHub Maven bundle. Before announcing Central availability, configure namespace access and signing, deploy, and verify a fresh consumer against Central.
 
-## Post-1.0 roadmap
+## Further work
 
-- strings;
-- structs and custom memory layouts;
-- callbacks;
-- native exception transport;
-- Gradle plugin;
-- WASM backend;
-- optional explicit library unloading;
-- broader architecture matrix beyond hosted x64 runners.
-
-These roadmap items should not block a stable 1.0 release of the current primitive-scalar and primitive-array ABI.
+Header-based wrapper generation, additional CPU architectures, Gradle integration and explicit library unloading remain future work. Strings, records, callbacks and C++ exception guards are covered by the 1.1 release checks.

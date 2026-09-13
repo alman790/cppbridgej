@@ -2,69 +2,36 @@ package dev.cppbridge.runtime;
 
 import dev.cppbridge.ArrayDirection;
 import dev.cppbridge.CppBridgeException;
-import dev.cppbridge.memory.NativeByteArray;
-import dev.cppbridge.memory.NativeDoubleArray;
-import dev.cppbridge.memory.NativeFloatArray;
-import dev.cppbridge.memory.NativeIntArray;
-import dev.cppbridge.memory.NativeLongArray;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 final class NativeArrayMemory {
-    private NativeArrayMemory() {
-    }
+    private NativeArrayMemory() {}
 
     static boolean isManagedNativeArray(Class<?> type) {
-        return type == NativeByteArray.class
-                || type == NativeIntArray.class
-                || type == NativeLongArray.class
-                || type == NativeFloatArray.class
-                || type == NativeDoubleArray.class;
+        return dev.cppbridge.memory.NativeArray.class.isAssignableFrom(type);
     }
 
     static MemorySegment segmentOfManagedNativeArray(Object value) {
-        if (value instanceof NativeByteArray nativeByteArray) {
-            return nativeByteArray.segment();
-        }
-        if (value instanceof NativeIntArray nativeIntArray) {
-            return nativeIntArray.segment();
-        }
-        if (value instanceof NativeLongArray nativeLongArray) {
-            return nativeLongArray.segment();
-        }
-        if (value instanceof NativeFloatArray nativeFloatArray) {
-            return nativeFloatArray.segment();
-        }
-        if (value instanceof NativeDoubleArray nativeDoubleArray) {
-            return nativeDoubleArray.segment();
-        }
-        throw new CppBridgeException("Unsupported native array value: " + value.getClass().getName());
+        if (value instanceof dev.cppbridge.memory.NativeArray array) return array.segment();
+        throw new CppBridgeException(
+                "Unsupported native array value: " + value.getClass().getName());
     }
 
     static int lengthOfManagedNativeArray(Object value) {
-        if (value instanceof NativeByteArray nativeByteArray) {
-            return nativeByteArray.length();
-        }
-        if (value instanceof NativeIntArray nativeIntArray) {
-            return nativeIntArray.length();
-        }
-        if (value instanceof NativeLongArray nativeLongArray) {
-            return nativeLongArray.length();
-        }
-        if (value instanceof NativeFloatArray nativeFloatArray) {
-            return nativeFloatArray.length();
-        }
-        if (value instanceof NativeDoubleArray nativeDoubleArray) {
-            return nativeDoubleArray.length();
-        }
-        throw new CppBridgeException("Unsupported native array value: " + value.getClass().getName());
+        if (value instanceof dev.cppbridge.memory.NativeArray array) return array.length();
+        throw new CppBridgeException(
+                "Unsupported native array value: " + value.getClass().getName());
     }
 
     static MemorySegment allocateAndCopy(Arena arena, Object array, ArrayDirection direction) {
         if (array instanceof byte[] values) {
-            MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE.byteSize() * values.length, ValueLayout.JAVA_BYTE.byteAlignment());
+            MemorySegment segment =
+                    arena.allocate(
+                            ValueLayout.JAVA_BYTE.byteSize() * values.length,
+                            ValueLayout.JAVA_BYTE.byteAlignment());
             if (direction != ArrayDirection.OUT) {
                 segment.copyFrom(MemorySegment.ofArray(values));
             }
@@ -72,7 +39,10 @@ final class NativeArrayMemory {
         }
 
         if (array instanceof int[] values) {
-            MemorySegment segment = arena.allocate(ValueLayout.JAVA_INT.byteSize() * values.length, ValueLayout.JAVA_INT.byteAlignment());
+            MemorySegment segment =
+                    arena.allocate(
+                            ValueLayout.JAVA_INT.byteSize() * values.length,
+                            ValueLayout.JAVA_INT.byteAlignment());
             if (direction != ArrayDirection.OUT) {
                 segment.copyFrom(MemorySegment.ofArray(values));
             }
@@ -80,7 +50,10 @@ final class NativeArrayMemory {
         }
 
         if (array instanceof long[] values) {
-            MemorySegment segment = arena.allocate(ValueLayout.JAVA_LONG.byteSize() * values.length, ValueLayout.JAVA_LONG.byteAlignment());
+            MemorySegment segment =
+                    arena.allocate(
+                            ValueLayout.JAVA_LONG.byteSize() * values.length,
+                            ValueLayout.JAVA_LONG.byteAlignment());
             if (direction != ArrayDirection.OUT) {
                 segment.copyFrom(MemorySegment.ofArray(values));
             }
@@ -88,7 +61,10 @@ final class NativeArrayMemory {
         }
 
         if (array instanceof float[] values) {
-            MemorySegment segment = arena.allocate(ValueLayout.JAVA_FLOAT.byteSize() * values.length, ValueLayout.JAVA_FLOAT.byteAlignment());
+            MemorySegment segment =
+                    arena.allocate(
+                            ValueLayout.JAVA_FLOAT.byteSize() * values.length,
+                            ValueLayout.JAVA_FLOAT.byteAlignment());
             if (direction != ArrayDirection.OUT) {
                 segment.copyFrom(MemorySegment.ofArray(values));
             }
@@ -96,13 +72,32 @@ final class NativeArrayMemory {
         }
 
         if (array instanceof double[] values) {
-            MemorySegment segment = arena.allocate(ValueLayout.JAVA_DOUBLE.byteSize() * values.length, ValueLayout.JAVA_DOUBLE.byteAlignment());
+            MemorySegment segment =
+                    arena.allocate(
+                            ValueLayout.JAVA_DOUBLE.byteSize() * values.length,
+                            ValueLayout.JAVA_DOUBLE.byteAlignment());
             if (direction != ArrayDirection.OUT) {
                 segment.copyFrom(MemorySegment.ofArray(values));
             }
             return segment;
         }
 
+        if (NativeTypeMapper.isHeapArray(array.getClass())) {
+            Class<?> component = array.getClass().getComponentType();
+            var layout = NativeCodec.layout(component);
+            int length = java.lang.reflect.Array.getLength(array);
+            MemorySegment memory =
+                    arena.allocate(
+                            Math.multiplyExact(layout.byteSize(), length), layout.byteAlignment());
+            if (direction != ArrayDirection.OUT) {
+                for (int i = 0; i < length; i++)
+                    NativeCodec.write(
+                            component,
+                            memory.asSlice(i * layout.byteSize(), layout.byteSize()),
+                            java.lang.reflect.Array.get(array, i));
+            }
+            return memory;
+        }
         throw new IllegalArgumentException("Unsupported array type: " + array.getClass().getName());
     }
 
@@ -132,6 +127,15 @@ final class NativeArrayMemory {
             return;
         }
 
+        if (NativeTypeMapper.isHeapArray(array.getClass())) {
+            Class<?> component = array.getClass().getComponentType();
+            long size = NativeCodec.layout(component).byteSize();
+            int length = java.lang.reflect.Array.getLength(array);
+            for (int i = 0; i < length; i++)
+                java.lang.reflect.Array.set(
+                        array, i, NativeCodec.read(component, segment.asSlice(i * size, size)));
+            return;
+        }
         throw new IllegalArgumentException("Unsupported array type: " + array.getClass().getName());
     }
 }

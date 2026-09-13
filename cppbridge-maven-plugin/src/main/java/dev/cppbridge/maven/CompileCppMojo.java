@@ -20,12 +20,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * Maven goal that compiles C++ sources from {@code src/main/cpp} into a native
- * shared library.
+ * Maven goal that compiles C++ sources from {@code src/main/cpp} into a native shared library.
  *
- * <p>The goal also inspects exported symbols and can fail the build when a
- * configured expected symbol is missing. Reports are written to
- * {@code target/cppbridge} by default.</p>
+ * <p>The goal also inspects exported symbols and can fail the build when a configured expected
+ * symbol is missing. Reports are written to {@code target/cppbridge} by default.
  */
 @Mojo(name = "compile-cpp", defaultPhase = LifecyclePhase.GENERATE_RESOURCES, threadSafe = true)
 public final class CompileCppMojo extends AbstractMojo {
@@ -54,12 +52,10 @@ public final class CompileCppMojo extends AbstractMojo {
     private boolean packageNative;
 
     /** Header search directories. Paths are resolved relative to the project. */
-    @Parameter
-    private List<File> includeDirectories;
+    @Parameter private List<File> includeDirectories;
 
     /** Linker arguments, placed after source files so static libraries resolve correctly. */
-    @Parameter
-    private List<String> extraLinkerArgs;
+    @Parameter private List<String> extraLinkerArgs;
 
     /** Maximum runtime for each compiler or symbol-inspection command. */
     @Parameter(property = "cppbridge.commandTimeoutSeconds", defaultValue = "300")
@@ -82,12 +78,10 @@ public final class CompileCppMojo extends AbstractMojo {
     private String cppStandard;
 
     /** Extra compiler arguments, for example: -march=native, -ffast-math, /arch:AVX2. */
-    @Parameter
-    private List<String> extraCompilerArgs;
+    @Parameter private List<String> extraCompilerArgs;
 
     /** Symbols that must be exported by the resulting native library. */
-    @Parameter
-    private List<String> expectedSymbols;
+    @Parameter private List<String> expectedSymbols;
 
     /** Fail the Maven build if any configured expectedSymbols are missing. */
     @Parameter(defaultValue = "true")
@@ -102,11 +96,9 @@ public final class CompileCppMojo extends AbstractMojo {
     private boolean skip;
 
     /**
-     * Executes C++ compilation, symbol inspection, and optional symbol
-     * validation.
+     * Executes C++ compilation, symbol inspection, and optional symbol validation.
      *
-     * @throws MojoExecutionException if compilation or required symbol
-     *                                validation fails
+     * @throws MojoExecutionException if compilation or required symbol validation fails
      */
     @Override
     public void execute() throws MojoExecutionException {
@@ -134,7 +126,9 @@ public final class CompileCppMojo extends AbstractMojo {
         }
 
         Platform platform = Platform.detect();
-        Path outputLibrary = outputDirectory.toPath().resolve(platform.libraryFileName(libraryName));
+        Path outputLibrary =
+                outputDirectory.toPath().resolve(platform.libraryFileName(libraryName));
+        installBridgeHeader();
         List<String> command = buildCommand(platform, cppFiles, outputLibrary);
 
         getLog().info("Compiling C++ library: " + outputLibrary);
@@ -145,40 +139,66 @@ public final class CompileCppMojo extends AbstractMojo {
             getLog().info(compileResult.output());
         }
         if (compileResult.exitCode() != 0) {
-            throw new MojoExecutionException("C++ compiler failed with exit code "
-                    + compileResult.exitCode() + "\n" + compileResult.output());
+            throw new MojoExecutionException(
+                    "C++ compiler failed with exit code "
+                            + compileResult.exitCode()
+                            + "\n"
+                            + compileResult.output());
         }
 
         NativeSymbolReport symbolReport = inspectExportedSymbols(platform, outputLibrary);
-        List<String> missingSymbols = findMissingSymbols(platform, symbolReport.normalizedSymbols());
+        List<String> missingSymbols =
+                findMissingSymbols(platform, symbolReport.normalizedSymbols());
 
         if (generateBuildReport) {
-            writeReports(platform, cppFiles, outputLibrary, command, compileResult, symbolReport, missingSymbols);
+            writeReports(
+                    platform,
+                    cppFiles,
+                    outputLibrary,
+                    command,
+                    compileResult,
+                    symbolReport,
+                    missingSymbols);
         }
 
-        if (symbolReport.inspectionFailed() && expectedSymbols != null && !expectedSymbols.isEmpty()) {
+        if (symbolReport.inspectionFailed()
+                && expectedSymbols != null
+                && !expectedSymbols.isEmpty()) {
             throw new MojoExecutionException(symbolReport.message());
         }
 
         if (!missingSymbols.isEmpty()) {
-            String message = "Native library is missing expected exported symbols: " + String.join(", ", missingSymbols)
-                    + "\nSee: " + reportDirectory.toPath().resolve("native-build-report.txt").toAbsolutePath();
+            String message =
+                    "Native library is missing expected exported symbols: "
+                            + String.join(", ", missingSymbols)
+                            + "\nSee: "
+                            + reportDirectory
+                                    .toPath()
+                                    .resolve("native-build-report.txt")
+                                    .toAbsolutePath();
             if (failOnMissingSymbols) {
                 throw new MojoExecutionException(message);
             }
             getLog().warn(message);
         } else if (expectedSymbols != null && !expectedSymbols.isEmpty()) {
-            getLog().info("CppBridgeJ expected-symbol validation passed: " + expectedSymbols.size() + " symbol(s).");
+            getLog().info(
+                            "CppBridgeJ expected-symbol validation passed: "
+                                    + expectedSymbols.size()
+                                    + " symbol(s).");
         }
 
         if (packageNative) {
-            Path resource = classesDirectory.toPath().resolve(platform.resourceDirectory())
-                    .resolve(outputLibrary.getFileName());
+            Path resource =
+                    classesDirectory
+                            .toPath()
+                            .resolve(platform.resourceDirectory())
+                            .resolve(outputLibrary.getFileName());
             try {
                 Files.createDirectories(resource.getParent());
                 Files.copy(outputLibrary, resource, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException exception) {
-                throw new MojoExecutionException("Cannot package native library: " + resource, exception);
+                throw new MojoExecutionException(
+                        "Cannot package native library: " + resource, exception);
             }
             getLog().info("Packaged native library: " + resource);
         }
@@ -186,12 +206,15 @@ public final class CompileCppMojo extends AbstractMojo {
 
     private List<Path> findCppFiles(Path sourceDir) throws MojoExecutionException {
         try (Stream<Path> stream = Files.walk(sourceDir)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> {
-                        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-                        return name.endsWith(".cpp") || name.endsWith(".cc") || name.endsWith(".cxx");
-                    })
+            return stream.filter(Files::isRegularFile)
+                    .filter(
+                            path -> {
+                                String name =
+                                        path.getFileName().toString().toLowerCase(Locale.ROOT);
+                                return name.endsWith(".cpp")
+                                        || name.endsWith(".cc")
+                                        || name.endsWith(".cxx");
+                            })
                     .sorted()
                     .toList();
         } catch (IOException e) {
@@ -199,7 +222,28 @@ public final class CompileCppMojo extends AbstractMojo {
         }
     }
 
-    private List<String> buildCommand(Platform platform, List<Path> cppFiles, Path outputLibrary) throws MojoExecutionException {
+    private void installBridgeHeader() throws MojoExecutionException {
+        Path directory = reportDirectory.toPath().resolve("include").toAbsolutePath().normalize();
+        try (var header = CompileCppMojo.class.getResourceAsStream("/include/cppbridge.hpp")) {
+            if (header == null)
+                throw new java.io.IOException("cppbridge.hpp is missing from the plugin");
+            Files.createDirectories(directory);
+            Files.copy(
+                    header,
+                    directory.resolve("cppbridge.hpp"),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            List<File> directories =
+                    new java.util.ArrayList<>(
+                            includeDirectories == null ? List.of() : includeDirectories);
+            directories.add(directory.toFile());
+            includeDirectories = directories;
+        } catch (java.io.IOException exception) {
+            throw new MojoExecutionException("Cannot install CppBridgeJ native header", exception);
+        }
+    }
+
+    private List<String> buildCommand(Platform platform, List<Path> cppFiles, Path outputLibrary)
+            throws MojoExecutionException {
         return CppCompilerCommandBuilder.build(
                 platform,
                 compiler,
@@ -208,12 +252,17 @@ public final class CompileCppMojo extends AbstractMojo {
                 extraCompilerArgs,
                 cppFiles,
                 outputLibrary,
-                includeDirectories == null ? List.of() : includeDirectories.stream()
-                        .map(File::toPath)
-                        .map(path -> path.isAbsolute() ? path : projectDirectory.toPath().resolve(path))
-                        .toList(),
-                extraLinkerArgs
-        );
+                includeDirectories == null
+                        ? List.of()
+                        : includeDirectories.stream()
+                                .map(File::toPath)
+                                .map(
+                                        path ->
+                                                path.isAbsolute()
+                                                        ? path
+                                                        : projectDirectory.toPath().resolve(path))
+                                .toList(),
+                extraLinkerArgs);
     }
 
     private CommandResult runCommand(List<String> command) throws MojoExecutionException {
@@ -233,7 +282,8 @@ public final class CompileCppMojo extends AbstractMojo {
             if (expectedSymbol == null || expectedSymbol.isBlank()) {
                 continue;
             }
-            String normalizedExpected = NativeSymbolInspector.normalizeSymbol(platform, expectedSymbol);
+            String normalizedExpected =
+                    NativeSymbolInspector.normalizeSymbol(platform, expectedSymbol);
             if (!normalizedSymbols.contains(normalizedExpected)) {
                 missing.add(expectedSymbol);
             }
@@ -248,8 +298,8 @@ public final class CompileCppMojo extends AbstractMojo {
             List<String> command,
             CommandResult compileResult,
             NativeSymbolReport symbolReport,
-            List<String> missingSymbols
-    ) throws MojoExecutionException {
+            List<String> missingSymbols)
+            throws MojoExecutionException {
         Path reportDir = reportDirectory.toPath();
         Path buildReport = reportDir.resolve("native-build-report.txt");
         Path exportedSymbolsFile = reportDir.resolve("exported-symbols.txt");
@@ -262,7 +312,9 @@ public final class CompileCppMojo extends AbstractMojo {
         report.append("Platform: ").append(platform).append('\n');
         report.append("Library name: ").append(libraryName).append('\n');
         report.append("Output library: ").append(outputLibrary.toAbsolutePath()).append('\n');
-        report.append("Source directory: ").append(sourceDirectory.toPath().toAbsolutePath()).append('\n');
+        report.append("Source directory: ")
+                .append(sourceDirectory.toPath().toAbsolutePath())
+                .append('\n');
         report.append("Compiler command: ").append(String.join(" ", command)).append('\n');
         report.append("Compiler exit code: ").append(compileResult.exitCode()).append('\n');
         report.append('\n');
@@ -283,11 +335,15 @@ public final class CompileCppMojo extends AbstractMojo {
         }
         report.append('\n');
 
-        report.append("Symbol inspection command: ").append(String.join(" ", symbolReport.command())).append('\n');
+        report.append("Symbol inspection command: ")
+                .append(String.join(" ", symbolReport.command()))
+                .append('\n');
         if (!symbolReport.message().isBlank()) {
             report.append("Symbol inspection note: ").append(symbolReport.message()).append('\n');
         }
-        report.append("Exported symbols detected: ").append(symbolReport.normalizedSymbols().size()).append('\n');
+        report.append("Exported symbols detected: ")
+                .append(symbolReport.normalizedSymbols().size())
+                .append('\n');
         report.append("Missing expected symbols: ").append(missingSymbols.size()).append('\n');
         for (String missingSymbol : missingSymbols) {
             report.append("- MISSING: ").append(missingSymbol).append('\n');
@@ -295,14 +351,20 @@ public final class CompileCppMojo extends AbstractMojo {
 
         try {
             Files.writeString(buildReport, report.toString(), StandardCharsets.UTF_8);
-            Files.writeString(exportedSymbolsFile, String.join(System.lineSeparator(), symbolReport.normalizedSymbols()), StandardCharsets.UTF_8);
+            Files.writeString(
+                    exportedSymbolsFile,
+                    String.join(System.lineSeparator(), symbolReport.normalizedSymbols()),
+                    StandardCharsets.UTF_8);
             Files.writeString(rawSymbolsFile, symbolReport.rawOutput(), StandardCharsets.UTF_8);
-            Files.writeString(missingSymbolsFile, String.join(System.lineSeparator(), missingSymbols), StandardCharsets.UTF_8);
+            Files.writeString(
+                    missingSymbolsFile,
+                    String.join(System.lineSeparator(), missingSymbols),
+                    StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new MojoExecutionException("Cannot write CppBridgeJ build reports to " + reportDir, e);
+            throw new MojoExecutionException(
+                    "Cannot write CppBridgeJ build reports to " + reportDir, e);
         }
 
         getLog().info("CppBridgeJ native build report: " + buildReport.toAbsolutePath());
     }
-
 }
