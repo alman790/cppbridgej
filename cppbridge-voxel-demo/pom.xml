@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>dev.cppbridge</groupId>
+        <artifactId>cppbridgej-parent</artifactId>
+        <version>1.1.0</version>
+    </parent>
+    <artifactId>cppbridge-voxel-demo</artifactId>
+    <name>Stratawild — Original Voxel Sandbox</name>
+    <description>Handcrafted C++ voxel simulation, raycaster and Java UI using CppBridgeJ.</description>
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <lwjgl.version>3.3.6</lwjgl.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>dev.cppbridge</groupId>
+            <artifactId>cppbridge-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Low-level BSD-3-Clause bindings, not a borrowed game engine. -->
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier><scope>runtime</scope></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-glfw</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier><scope>runtime</scope></dependency>
+        <dependency><groupId>org.lwjgl</groupId><artifactId>lwjgl-opengl</artifactId><version>${lwjgl.version}</version><classifier>${lwjgl.natives}</classifier><scope>runtime</scope></dependency>
+    </dependencies>
+    <profiles>
+        <profile><id>mac-arm64</id><activation><os><family>mac</family><arch>aarch64</arch></os></activation><properties><lwjgl.natives>natives-macos-arm64</lwjgl.natives></properties></profile>
+        <profile><id>mac-intel</id><activation><os><family>mac</family><arch>x86_64</arch></os></activation><properties><lwjgl.natives>natives-macos</lwjgl.natives></properties></profile>
+        <profile><id>linux-amd64</id><activation><os><family>unix</family><name>Linux</name><arch>amd64</arch></os></activation><properties><lwjgl.natives>natives-linux</lwjgl.natives></properties></profile>
+        <profile><id>linux-arm64</id><activation><os><family>unix</family><name>Linux</name><arch>aarch64</arch></os></activation><properties><lwjgl.natives>natives-linux-arm64</lwjgl.natives></properties></profile>
+        <profile><id>windows-amd64</id><activation><os><family>windows</family><arch>amd64</arch></os></activation><properties><lwjgl.natives>natives-windows</lwjgl.natives></properties></profile>
+    </profiles>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>dev.cppbridge</groupId>
+                <artifactId>cppbridge-maven-plugin</artifactId>
+                <version>${project.version}</version>
+                <configuration>
+                    <libraryName>stratawild</libraryName>
+                    <expectedSymbols>
+                        <expectedSymbol>voxel_init</expectedSymbol>
+                        <expectedSymbol>voxel_tick</expectedSymbol>
+                        <expectedSymbol>voxel_render</expectedSymbol>
+                        <expectedSymbol>voxel_interact</expectedSymbol>
+                        <expectedSymbol>voxel_save</expectedSymbol>
+                        <expectedSymbol>voxel_loaded_chunks</expectedSymbol>
+                        <expectedSymbol>voxel_mesh_list</expectedSymbol>
+                        <expectedSymbol>voxel_mesh_copy</expectedSymbol>
+                        <expectedSymbol>voxel_mesh_copy_far</expectedSymbol>
+                        <expectedSymbol>voxel_camera</expectedSymbol>
+                        <expectedSymbol>voxel_inventory</expectedSymbol>
+                        <expectedSymbol>voxel_mesh_water_words</expectedSymbol>
+                        <expectedSymbol>voxel_mesh_copy_water</expectedSymbol>
+                    </expectedSymbols>
+                </configuration>
+                <executions><execution><goals><goal>compile-cpp</goal></goals></execution></executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration><mainClass>dev.cppbridge.voxel.Stratawild</mainClass></configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

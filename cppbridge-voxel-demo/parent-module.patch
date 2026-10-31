@@ -1,0 +1,8 @@
+diff --git a/pom.xml b/pom.xml
+--- a/pom.xml
+@@ -5,4 +5,5 @@
+         <module>cppbridge-maven-plugin</module>
+         <module>cppbridge-example</module>
+         <module>cppbridge-benchmark</module>
++        <module>cppbridge-voxel-demo</module>
+     </modules>
