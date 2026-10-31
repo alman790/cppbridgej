@@ -43,3 +43,12 @@ if command -v javac >/dev/null && command -v java >/dev/null; then
 else
   echo "Java frame statistics test skipped (javac/java unavailable)"
 fi
+
+"$COMPILER" -std=c++20 -O2 -Wall -Wextra -Wpedantic -pthread \
+  "$HERE/src/test/cpp/world09.cpp" -o "$TMP/world09"
+(cd "$TMP" && ./world09)
+if command -v javac >/dev/null && command -v java >/dev/null; then
+  javac -d "$TMP" "$HERE/src/main/java/dev/cppbridge/voxel/MeshUploadBudget.java" \
+    "$HERE/src/test/java/dev/cppbridge/voxel/MeshUploadBudgetTest.java"
+  (cd "$TMP" && java dev.cppbridge.voxel.MeshUploadBudgetTest)
+fi

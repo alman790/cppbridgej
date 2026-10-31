@@ -124,7 +124,14 @@ struct PositionHash {
 // word0: x:5 y:7 z:5 direction:3 material:4;
 // word1: width:8 height:8 AO at bits 16..23 and cave light at 24..31.
 // Faces are generated ONLY for air/solid boundaries, then merged greedily.
+// Immutable voxel snapshots are reused until THIS chunk's block data changes.
+// Neighbor remeshing no longer clones unchanged voxel arrays on the game thread.
+struct VoxelSnapshot {
+    std::array<uint8_t,CHUNK_VOLUME> blocks;
+    std::array<uint8_t,CHUNK_VOLUME> fluid;
+};
 struct Chunk {
+    std::shared_ptr<const VoxelSnapshot> snapshot;
     std::array<uint8_t,CHUNK_VOLUME> blocks{};
     std::vector<std::int32_t> mesh;
     std::vector<std::int32_t> water_mesh;
@@ -180,7 +187,7 @@ public:
         int cx=0,cz=0;
         std::uint64_t generation=0, epoch=0;
         std::shared_ptr<std::atomic<std::uint64_t>> ticket;
-        std::vector<std::pair<uint64_t,std::unique_ptr<Chunk>>> neighborhood;
+        std::vector<std::pair<uint64_t,std::shared_ptr<const VoxelSnapshot>>> neighborhood;
     };
     struct MeshResult {
         int cx=0,cz=0;
@@ -293,8 +300,14 @@ public:
                         mesh_canceled.fetch_add(1,std::memory_order_relaxed);
                     } else {
                     staging.chunks.clear();
-                    for(auto& item:job.neighborhood)
-                        staging.chunks.emplace(item.first,std::move(item.second));
+                    for(const auto& item:job.neighborhood) {
+                        // Mutable staging belongs exclusively to this worker;
+                        // other mesh requests can share an immutable source.
+                        auto copy=std::make_unique<Chunk>();
+                        copy->blocks=item.second->blocks;
+                        copy->fluid=item.second->fluid;
+                        staging.chunks.emplace(item.first,std::move(copy));
+                    }
                     auto it=staging.chunks.find(pair_key(job.cx,job.cz));
                     if(it!=staging.chunks.end()) {
                         staging.build_mesh(job.cx,job.cz,*it->second);
@@ -398,10 +411,14 @@ public:
                 const uint64_t neighbor=pair_key(cx+dx,cz+dz);
                 auto it=chunks.find(neighbor);
                 if(it==chunks.end()) continue;
-                auto immutable=std::make_unique<Chunk>();
-                immutable->blocks=it->second->blocks;
-                immutable->fluid=it->second->fluid;
-                job.neighborhood.emplace_back(neighbor,std::move(immutable));
+                Chunk& source=*it->second;
+                if(!source.snapshot) {
+                    auto cached=std::make_shared<VoxelSnapshot>();
+                    cached->blocks=source.blocks;
+                    cached->fluid=source.fluid;
+                    source.snapshot=std::move(cached);
+                }
+                job.neighborhood.emplace_back(neighbor,source.snapshot);
             }
             {
                 std::lock_guard lock(mesh_mutex);
@@ -705,6 +722,7 @@ public:
             if(desired==old_level) continue;
             ch.fluid[i]=uint8_t(desired);
             ch.blocks[i]=desired?WATER:AIR;
+            ch.snapshot.reset();
             dirty_after_block(x,z);
             wake_liquid(x,y,z);
         }
@@ -1031,6 +1049,7 @@ public:
             size_t i=index(positive_mod(x,SIDE),y,positive_mod(z,SIDE));
             it->second->blocks[i]=block;
             it->second->fluid[i]=block==WATER?LIQUID_SOURCE:0;
+            it->second->snapshot.reset();
             dirty_after_block(x,z);
             wake_liquid(x,y,z);
         }

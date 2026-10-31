@@ -27,6 +27,8 @@ import static org.lwjgl.opengl.GL33C.*;
  */
 public final class StratawildGL implements AutoCloseable {
     private static final int CHUNK_LIMIT = 16 * 16;
+    private static final int GPU_UPLOADS_PER_FRAME = 2;
+    private static final int GPU_BYTES_PER_FRAME = 1024 * 1024;
     private final VoxelNative api;
     private final Map<Long, GpuChunk> meshes = new HashMap<>();
     private long window;
@@ -181,7 +183,7 @@ public final class StratawildGL implements AutoCloseable {
                 api.tick(keys(),yaw,pitch,dt);
                 if(action!=0) {api.interact(action,selected);action=0;}
                 api.camera(camera);
-                synchronizeMeshes(list);
+                synchronizeMeshes(list,camera);
                 draw(camera);
                 glfwSwapBuffers(window);
                 frameStats.addNanos(System.nanoTime()-now);
@@ -198,7 +200,7 @@ public final class StratawildGL implements AutoCloseable {
                                 +" | stale "+streamStats.get(7)
                                 +" | canceled "+(streamStats.get(8)+streamStats.get(9));
                     }
-                    glfwSetWindowTitle(window,"Stratawild 0.8 | "+frames+" FPS | p95 "
+                    glfwSetWindowTitle(window,"Stratawild 0.9 | "+frames+" FPS | p95 "
                             +String.format(java.util.Locale.ROOT,"%.1f",frameStats.p95Ms())
                             +" ms | p99 "+String.format(java.util.Locale.ROOT,"%.1f",frameStats.p99Ms())
                             +" ms | "+meshes.size()+" chunks | slot "+selected+": "
@@ -229,9 +231,10 @@ public final class StratawildGL implements AutoCloseable {
         return currentBytes;
     }
 
-    private void synchronizeMeshes(NativeIntArray list) {
+    private void synchronizeMeshes(NativeIntArray list,NativeFloatArray camera) {
         int count=api.meshList(list);
         Set<Long> alive=new HashSet<>(count*2+1);
+        ArrayList<MeshUploadBudget.Candidate> candidates=new ArrayList<>();
         for(int i=0;i<count;++i) {
             int cx=list.get(i*4),cz=list.get(i*4+1);
             int revision=list.get(i*4+2),quadCount=list.get(i*4+3);
@@ -240,8 +243,18 @@ public final class StratawildGL implements AutoCloseable {
             GpuChunk existing=meshes.get(key);
             if(existing!=null&&existing.revision==revision) continue;
             if(quadCount<0||quadCount>1_000_000) continue;
-            // Revision zero means only the coarse heightfield has arrived;
-            // do not call detailed mesh APIs before background meshing finishes.
+            candidates.add(new MeshUploadBudget.Candidate(cx,cz,revision,quadCount,
+                    existing==null));
+        }
+        // Bounded GPU uploads: nearby/forward chunks first. Deferred revisions
+        // are discovered again on the next frame without extra persistent queues.
+        var chosen=MeshUploadBudget.select(candidates,camera.get(0),camera.get(2),
+                camera.get(3),GPU_UPLOADS_PER_FRAME,GPU_BYTES_PER_FRAME);
+        for(var job:chosen) {
+            int cx=job.cx(),cz=job.cz(),revision=job.revision(),quadCount=job.quads();
+            long key=chunkKey(cx,cz);
+            GpuChunk existing=meshes.get(key);
+            // Revision zero means only coarse terrain exists at this point.
             int waterWords=revision==0?0:api.waterWords(cx,cz);
             if(waterWords<0||waterWords>2_000_000||(waterWords&1)!=0) continue;
             try(NativeIntArray quads=NativeIntArray.allocate(Math.max(1,quadCount*2));

@@ -1,63 +1,38 @@
-# Stratawild 0.8 — an original C++/Java voxel sandbox
+# Stratawild 0.9 — an original C++/Java voxel sandbox
 
 A from-scratch procedural voxel game built to exercise [CppBridgeJ](https://github.com/alman790/cppbridgej). It does not include Minecraft code, textures, sounds, characters, names or copied game data. The world generator, physics, greedy mesher, shaders and game logic are original project code.
 
-For new features, limitations, benchmarks and compatibility, see [0.8 release notes](RELEASE_NOTES_0.8.md). Earlier releases: [0.7](RELEASE_NOTES_0.7.md), [0.6](RELEASE_NOTES_0.6.md), [0.5](RELEASE_NOTES_0.5.md), [0.4](RELEASE_NOTES_0.4.md), [0.3](RELEASE_NOTES_0.3.md).
+For new features and compatibility, see [0.9 release notes](RELEASE_NOTES_0.9.md) and [0.8 release notes](RELEASE_NOTES_0.8.md). Earlier releases: [0.7](RELEASE_NOTES_0.7.md), [0.6](RELEASE_NOTES_0.6.md), [0.5](RELEASE_NOTES_0.5.md), [0.4](RELEASE_NOTES_0.4.md), [0.3](RELEASE_NOTES_0.3.md).
 
 ## Architecture
 
 - **C++20**: deterministic 4-biome terrain, 3D caves, lakes, bounded flowing water, light-emitting blocks and vegetation, 16×16×80 chunks, ray-picking, swimming/collision, finite building inventory, editing and versioned save/load.
 - **Background C++ generation thread**: generation tickets cancel obsolete requests and standing-still retries avoid permanently missing chunks; initial 3×3 collision-safe chunks are produced immediately; the rest of the 13×13 streaming area is generated off-thread and integrated on the game thread.
-- **Independent mesh worker (0.6–0.8)**: copies only loaded 3×3 block/fluid neighborhoods, computes full AO and 15-block halo lighting off-thread, and sends packed meshes back through a bounded completion queue. Epoch and generation checks reject results invalidated by edits, flow, unload/reload or reset. Only the first bootstrap mesh is built synchronously. Equal-range jobs prioritize the forward view while the immediate neighborhood remains highest priority. In 0.8, canceled queued snapshots are discarded early, and unloaded chunks invalidate their work tokens.
+- **Independent mesh worker (0.6–0.9)**: reuses immutable voxel snapshots for unchanged loaded neighbors, computes full AO and 15-block halo lighting off-thread, and sends packed meshes back through a bounded completion queue. Epoch and generation checks reject results invalidated by edits, flow, unload/reload or reset. Only the first bootstrap mesh is built synchronously. Equal-range jobs prioritize the forward view while the immediate neighborhood remains highest priority. In 0.8, canceled queued snapshots are discarded early, and unloaded chunks invalidate their work tokens.
 - **Greedy surface meshing**: only visible faces are emitted; neighboring equal-material faces are merged. Each merged quad is **two packed 32-bit words** (8 bytes) containing local origin, orientation, 4-bit material ID, dimensions, vertex AO and 2-bit-per-vertex propagated light.
 - **CppBridgeJ FFM**: transfers entire chunk meshes in one call instead of per-voxel calls.
-- **GPU renderer (`StratawildGL`)**: OpenGL 3.3 Core with shader-side quad expansion via instancing, baked vertex AO and cave light, screen-door LOD transition (80–103m) with 4-edge far-field skirts, separate alpha-blended variable-height water, reusable revision-aware GPU buffers, frustum and distance culling, depth testing, frame p95/p99 display, optional F3 streaming diagnostics, and procedural per-block colors. LWJGL + GLFW are low-level BSD-3-Clause bindings (not an engine or an asset pack).
+- **GPU renderer (`StratawildGL`)**: budgeted near/forward-first transfers (up to two mesh revisions per frame, ~1 MiB estimated opaque bytes), OpenGL 3.3 Core with shader-side quad expansion via instancing, baked vertex AO and cave light, screen-door LOD transition (80–103m) with 4-edge far-field skirts, separate alpha-blended variable-height water, reusable revision-aware GPU buffers, frustum and distance culling, depth testing, frame p95/p99 display, optional F3 streaming diagnostics, and procedural per-block colors. LWJGL + GLFW are low-level BSD-3-Clause bindings (not an engine or an asset pack).
 - **Software fallback (`Stratawild`)**: original threaded C++ ray traversal into a NativeIntArray, Java Swing window/UI. No graphics runtime beyond Java is used in this fallback.
 
-## Install from a ZIP
+## Build from GitHub (no archives or patch files)
 
-Requirements: **JDK 22+**, C++20 compiler (`clang++` on macOS, `g++` on Linux), Maven 3.9+ or the repository's Maven Wrapper, desktop graphics. The GPU client additionally requires **OpenGL 3.3** and downloads LWJGL 3.3.6 from Maven Central on first build.
-
-1. `git clone https://github.com/alman790/cppbridgej.git`
-2. Extract the folder `cppbridge-voxel-demo/` from the supplied ZIP into the root of the clone.
-3. From the repository root run `git apply cppbridge-voxel-demo/parent-module.patch` once.
-4. Launch one of the clients:
+The game now lives in the `feature/stratawild-0.9` GitHub branch.
+Requirements: **JDK 22+**, C++20 compiler, Maven Wrapper, desktop graphics;
+the GPU client needs OpenGL 3.3 and LWJGL 3.3.6 from Maven Central.
 
 ```bash
-# GPU-first experience: original custom shaders + greedy meshing
+git clone --branch feature/stratawild-0.9 https://github.com/alman790/cppbridgej.git
+cd cppbridgej
+bash cppbridge-voxel-demo/test-native.sh
 bash cppbridge-voxel-demo/run-gpu.sh
-
-# Software renderer / Swing fallback (lower render resolution)
+# Optional: software fallback
 bash cppbridge-voxel-demo/run.sh
-
-# Standalone native tests: no Java or Maven needed
-bash cppbridge-voxel-demo/test-native.sh
-bash cppbridge-voxel-demo/benchmark-native.sh
 ```
 
-**Important for macOS:** `run-gpu.sh` automatically launches Java with `-XstartOnFirstThread`, required by GLFW on macOS. The supported GPU API is OpenGL 3.3 Core, compatible with Apple Metal drivers through Apple's legacy OpenGL compatibility layer. Performance still must be profiled on physical devices. GPU and CPU clients share `stratawild.svxl`; only run one instance at a time. **Back up the world before upgrading:** 0.8 continues to write SVXL0002 and reads existing 0.4 worlds; versions 0.3 and older cannot read the newer inventory/material data.
-
-## Upgrade existing 0.7 installation
-
-Keep your existing git checkout and **back up** `stratawild.svxl`. From the
-repository root, after downloading the upgrade patch:
-
-```bash
-git apply --check /path/to/stratawild-0.8-upgrade-from-0.7.patch
-git apply /path/to/stratawild-0.8-upgrade-from-0.7.patch
-bash cppbridge-voxel-demo/test-native.sh
-bash cppbridge-voxel-demo/run-gpu.sh
-```
-
-For a **clean** clone, use the 0.8 ZIP + its `parent-module.patch`, or the
-`stratawild-0.8-cppbridgej-full.patch` (no ZIP extraction required in that
-case). **Never apply the full patch on top of an earlier Stratawild install**.
-From 0.4, upgrade to 0.5, 0.6, 0.7, then 0.8. Earlier installs can
-alternatively start from a clean clone with the 0.8 ZIP.
-
-Flowing cells are reconstructed at runtime from stationary water sources;
-only permanent user edits and the finite inventory are stored in SVXL0002.
-Water may therefore take a few ticks to refill after reloading a region.
+On macOS, `run-gpu.sh` uses `-XstartOnFirstThread` for GLFW. Back up
+`stratawild.svxl` before switching versions. Saves still use `SVXL0002`.
+GPU and CPU clients use the same world file; do not run them simultaneously.
+The project is not merged into `main` until the pull request is reviewed.
 
 ## Controls
 

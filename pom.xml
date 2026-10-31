@@ -41,6 +41,7 @@
         <module>cppbridge-maven-plugin</module>
         <module>cppbridge-example</module>
         <module>cppbridge-benchmark</module>
+        <module>cppbridge-voxel-demo</module>
     </modules>
 
     <properties>
