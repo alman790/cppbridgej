@@ -1,0 +1,48 @@
+name: Stratawild native regression
+
+on:
+  pull_request:
+    paths:
+      - 'cppbridge-voxel-demo/**'
+      - '.github/workflows/stratawild.yml'
+  push:
+    paths:
+      - 'cppbridge-voxel-demo/**'
+      - '.github/workflows/stratawild.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and test latest streaming regressions
+        run: |
+          set -eu
+          for t in world08 world09; do
+            "${{ matrix.compiler }}" -std=c++20 -O2 -Wall -Wextra -Wpedantic -pthread \
+              cppbridge-voxel-demo/src/test/cpp/"$t".cpp -o "/tmp/$t"
+            "/tmp/$t"
+          done
+      - name: Compile pure-Java upload scheduler test
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "22"
+      - name: Validate frame statistics and upload budgets
+        run: |
+          set -eu
+          mkdir -p /tmp/stratawild-java
+          javac -d /tmp/stratawild-java \
+            cppbridge-voxel-demo/src/main/java/dev/cppbridge/voxel/FrameTimeStats.java \
+            cppbridge-voxel-demo/src/main/java/dev/cppbridge/voxel/MeshUploadBudget.java \
+            cppbridge-voxel-demo/src/test/java/dev/cppbridge/voxel/FrameTimeStatsTest.java \
+            cppbridge-voxel-demo/src/test/java/dev/cppbridge/voxel/MeshUploadBudgetTest.java
+          java -cp /tmp/stratawild-java dev.cppbridge.voxel.FrameTimeStatsTest
+          java -cp /tmp/stratawild-java dev.cppbridge.voxel.MeshUploadBudgetTest
